@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { Innertube, UniversalCache } from 'youtubei.js/web';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -14,29 +10,31 @@ export async function GET(request) {
     }
 
     try {
-        // Construct absolute path to yt-dlp binary
-        const binaryPath = path.join(process.cwd(), 'node_modules', 'youtube-dl-exec', 'bin', 'yt-dlp');
+        // Initialize Innertube with ANDROID client
+        const youtube = await Innertube.create({
+            cache: new UniversalCache(false),
+            generate_session_locally: true,
+            client_type: 'ANDROID'
+        });
 
-        // Execute yt-dlp directly
-        const { stdout } = await execFileAsync(binaryPath, [
-            '--get-url',
-            '-f', 'bestaudio',
-            '--no-warnings',
-            '--no-call-home',
-            '--no-check-certificate',
-            `https://www.youtube.com/watch?v=${videoId}`
-        ]);
+        console.log(`Getting stream for video: ${videoId}`);
 
-        const streamUrl = stdout.trim().split('\n')[0];
+        const stream = await youtube.download(videoId, {
+            type: 'audio',
+            quality: 'best',
+            format: 'mp4'
+        });
 
-        if (!streamUrl) {
-            return NextResponse.json({ error: 'No audio stream found' }, { status: 404 });
-        }
+        return new NextResponse(stream, {
+            headers: {
+                'Content-Type': 'audio/mp4',
+                'Cache-Control': 'public, max-age=3600',
+                'Access-Control-Allow-Origin': '*'
+            }
+        });
 
-        // Redirect to the actual audio stream URL
-        return NextResponse.redirect(streamUrl);
     } catch (error) {
-        console.error("Stream API Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('Stream API Error:', error);
+        return NextResponse.json({ error: 'Failed to get stream' }, { status: 500 });
     }
 }

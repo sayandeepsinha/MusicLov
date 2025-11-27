@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { Innertube } from 'youtubei.js/web';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -15,23 +11,32 @@ export async function GET(request) {
     }
 
     try {
-        // Construct absolute path to yt-dlp binary
-        const binaryPath = path.join(process.cwd(), 'node_modules', 'youtube-dl-exec', 'bin', 'yt-dlp');
+        // Initialize Innertube
+        const youtube = await Innertube.create();
 
-        // Execute yt-dlp to get the stream URL
-        const { stdout } = await execFileAsync(binaryPath, [
-            '--get-url',
-            '-f', 'bestaudio',
-            '--no-warnings',
-            '--no-call-home',
-            '--no-check-certificate',
-            `https://www.youtube.com/watch?v=${videoId}`
-        ]);
+        // Get video info
+        const info = await youtube.getInfo(videoId);
 
-        const streamUrl = stdout.trim().split('\n')[0];
+        if (!info) {
+            return NextResponse.json({ error: 'Could not get video info' }, { status: 404 });
+        }
+
+        // Get the best audio format
+        const audioFormat = info.chooseFormat({ type: 'audio', quality: 'best' });
+
+        if (!audioFormat) {
+            return NextResponse.json({ error: 'No audio format found' }, { status: 404 });
+        }
+
+        // Decipher the URL if needed
+        if (audioFormat.has_signature_cipher || audioFormat.has_cipher) {
+            await audioFormat.decipher(youtube.session.player);
+        }
+
+        const streamUrl = audioFormat.url;
 
         if (!streamUrl) {
-            return NextResponse.json({ error: 'No audio stream found' }, { status: 404 });
+            return NextResponse.json({ error: 'Could not get stream URL' }, { status: 404 });
         }
 
         // Fetch the stream
@@ -54,6 +59,9 @@ export async function GET(request) {
 
     } catch (error) {
         console.error("Download API Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({
+            error: error.message || 'Failed to download audio',
+            details: error.toString()
+        }, { status: 500 });
     }
 }
