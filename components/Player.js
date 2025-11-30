@@ -10,55 +10,105 @@ import { cn } from "@/lib/utils";
 export default function Player() {
     const { currentSong, isPlaying, setIsPlaying, togglePlay, playNext, playPrevious, playQueueTrack, queue, currentIndex } = usePlayer();
     const audioRef = useRef(null);
+    const isLoadingRef = useRef(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
     const [isRepeat, setIsRepeat] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
+    const [isSeeking, setIsSeeking] = useState(false);
 
     useEffect(() => {
         if (currentSong && audioRef.current) {
+            const audio = audioRef.current;
+
+            // Mark that we're loading a new song
+            isLoadingRef.current = true;
+
+            // Reset seeking state and progress/duration when song changes
+            setIsSeeking(false);
+            setProgress(0);
+            setDuration(0);
+
             if (currentSong.src) {
                 // Offline playback (Blob URL)
-                audioRef.current.src = currentSong.src;
-                audioRef.current.play().catch(e => console.error("Play failed", e));
-                setIsPlaying(true);
+                audio.src = currentSong.src;
+                audio.load();
+                audio.play()
+                    .then(() => {
+                        console.log("[Player] Offline playback started");
+                        setIsPlaying(true);
+                        isLoadingRef.current = false;
+                    })
+                    .catch(e => {
+                        console.error("Play failed", e);
+                        isLoadingRef.current = false;
+                    });
             } else {
-                // Online playback (Stream API)
+                // Online playback - stream through proxy
                 const videoId = currentSong.key || currentSong.videoId;
                 if (videoId) {
-                    audioRef.current.src = `/api/stream?videoId=${videoId}`;
-                    audioRef.current.play().catch(e => console.error("Play failed", e));
-                    setIsPlaying(true);
+                    console.log(`[Player] Loading stream for ${videoId}`);
+                    audio.src = `/api/stream?videoId=${videoId}`;
+                    audio.load();
+                    audio.play()
+                        .then(() => {
+                            console.log(`[Player] Playback started`);
+                            setIsPlaying(true);
+                            isLoadingRef.current = false;
+                        })
+                        .catch(e => {
+                            console.error("[Player] Play failed:", e);
+                            isLoadingRef.current = false;
+                        });
                 }
             }
         }
     }, [currentSong, setIsPlaying]);
 
     useEffect(() => {
-        if (audioRef.current) {
-            if (isPlaying) {
-                audioRef.current.play().catch(() => { });
-            } else {
-                audioRef.current.pause();
-            }
+        // Don't interfere if we're currently loading a new song
+        if (!audioRef.current || isLoadingRef.current) return;
+
+        if (isPlaying) {
+            audioRef.current.play().catch(() => { });
+        } else {
+            audioRef.current.pause();
         }
     }, [isPlaying]);
 
     const handleTimeUpdate = () => {
-        if (audioRef.current) {
+        if (audioRef.current && !isSeeking) {
             setProgress(audioRef.current.currentTime);
             setDuration(audioRef.current.duration || 0);
         }
     };
 
-    const handleSeek = (e) => {
+    const handleSeekChange = (e) => {
+        // Visual update only while dragging
         const newTime = parseFloat(e.target.value);
-        if (audioRef.current) {
-            audioRef.current.currentTime = newTime;
-            setProgress(newTime);
+        setProgress(newTime);
+    };
+
+    const handleSeekEnd = (e) => {
+        // Commit the seek when user releases
+        const newTime = parseFloat(e.target.value);
+        if (audioRef.current && !isNaN(newTime) && duration > 0) {
+            // Check if audio is ready and seekable
+            try {
+                // Only seek if the audio has loaded enough metadata
+                if (audioRef.current.readyState >= 2) { // HAVE_CURRENT_DATA or better
+                    audioRef.current.currentTime = newTime;
+                    console.log(`[Player] Seeked to ${newTime}s`);
+                } else {
+                    console.warn('[Player] Audio not ready for seeking yet');
+                }
+            } catch (error) {
+                console.error('[Player] Seek error:', error);
+            }
         }
+        setIsSeeking(false);
     };
 
     const toggleMute = () => {
@@ -130,10 +180,17 @@ export default function Player() {
         <>
             <audio
                 ref={audioRef}
+                preload="metadata"
                 onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={(e) => {
+                    setDuration(e.target.duration);
+                    console.log(`[Player] Metadata loaded, duration: ${e.target.duration}s`);
+                }}
+                onCanPlay={() => console.log('[Player] Can play - ready for playback')}
                 onEnded={handleEnded}
                 onPause={() => setIsPlaying(false)}
                 onPlay={() => setIsPlaying(true)}
+                onError={(e) => console.error('[Player] Audio error:', e)}
                 className="hidden"
             />
 
@@ -209,7 +266,11 @@ export default function Player() {
                                                         min="0"
                                                         max={duration || 100}
                                                         value={progress}
-                                                        onChange={handleSeek}
+                                                        onMouseDown={() => setIsSeeking(true)}
+                                                        onTouchStart={() => setIsSeeking(true)}
+                                                        onInput={handleSeekChange}
+                                                        onMouseUp={handleSeekEnd}
+                                                        onTouchEnd={handleSeekEnd}
                                                         className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
                                                     />
                                                     <span className="w-10">{formatTime(duration)}</span>
@@ -371,7 +432,11 @@ export default function Player() {
                                     min="0"
                                     max={duration || 100}
                                     value={progress}
-                                    onChange={handleSeek}
+                                    onMouseDown={() => setIsSeeking(true)}
+                                    onTouchStart={() => setIsSeeking(true)}
+                                    onInput={handleSeekChange}
+                                    onMouseUp={handleSeekEnd}
+                                    onTouchEnd={handleSeekEnd}
                                     className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
                                 />
                                 <span>{formatTime(duration)}</span>
