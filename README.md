@@ -1,34 +1,84 @@
-# MusicLov Web App
+# MusicLov 🎵
 
-An ad-free music streaming web application built with Next.js.
+A beautiful, ad-free music streaming desktop app built with Electron and React.
+
+![MusicLov](https://img.shields.io/badge/version-1.0.0-purple)
+![Platform](https://img.shields.io/badge/platform-macOS-blue)
 
 ## Features
 
-- **Stateless Architecture**: No user accounts required.
-- **Home Feed**: Curated charts (Top Hindi, English, Global).
-- **Search**: Search for songs, artists, and albums.
-- **Playback**: Reliable streaming with a persistent player.
-- **Offline Mode**: Download songs to your browser's local storage (IndexedDB) for offline playback.
-- **Responsive Design**: Glassmorphic UI with smooth animations.
+- 🎶 **Stream music** from YouTube Music
+- 🔍 **Search** for songs and artists
+- 📚 **Browse** trending categories (Hindi, English, Global, etc.)
+- 💾 **Offline playback** - Download songs for offline listening
+- 🎨 **Beautiful UI** with dark mode and smooth animations
+- 🚫 **No ads** - Pure music experience
 
 ## Tech Stack
 
-- **Framework**: Next.js 14+ (App Router)
-- **Styling**: Tailwind CSS v4
-- **Icons**: Lucide React
-- **Animations**: Framer Motion
-- **Audio Source**: YouTube (via `youtubei.js` and `yt-dlp`)
+- **Frontend**: React + Vite + TailwindCSS
+- **Desktop**: Electron
+- **Audio**: yt-dlp for audio extraction
+- **API**: YouTube Music InnerTube API
 
-## Getting Started
+## Prerequisites
 
-1.  Install dependencies:
-    ```bash
-    npm install
-    ```
+Before running, you need to download the yt-dlp binary:
 
-2.  Run the development server:
-    ```bash
-    npm run dev
-    ```
+1. Download yt-dlp for your platform from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)
+2. Place the binary in the `binaries/` folder
+3. Make it executable: `chmod +x binaries/yt-dlp`
 
-3.  Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/sayandeepsinha/MusicLov.git
+cd MusicLov
+
+# Install dependencies
+npm install
+
+# Run in development
+npm run electron:dev
+
+# Build for production
+npm run package
+```
+
+## Project Structure
+
+```
+musicLov/
+├── electron/              # Electron main process
+│   ├── main.js           # Entry point
+│   ├── preload.js        # Preload script
+│   └── services/         # Backend services
+│       ├── innertube.js  # YouTube Music API
+│       ├── proxy.js      # Audio proxy server
+│       └── ytdlp.js      # yt-dlp integration
+├── src/                  # React frontend
+│   ├── App.jsx           # Main app component
+│   ├── components/       # UI components
+│   ├── constants/        # App constants
+│   └── context/          # React context
+├── public/               # Static assets
+└── binaries/             # yt-dlp binary (not in git)
+```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server |
+| `npm run electron:dev` | Start Electron with hot reload |
+| `npm run build` | Build for production |
+| `npm run package` | Package as macOS app |
+
+## License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+Made with ❤️ by Sayandeep Sinha
