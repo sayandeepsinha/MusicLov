@@ -1,21 +1,12 @@
 /**
  * yt-dlp Service
  * Extracts audio URLs from YouTube using yt-dlp binary
+ * Uses platform-specific binary path from the platforms module
  */
 const { spawn } = require('child_process');
-const path = require('path');
-const { app } = require('electron');
 
-/**
- * Get the path to the yt-dlp binary
- */
-function getYtdlpPath() {
-    const isDev = !app.isPackaged;
-    if (isDev) {
-        return path.join(__dirname, '../../binaries/yt-dlp');
-    }
-    return path.join(process.resourcesPath, 'binaries/yt-dlp');
-}
+// Import platform-specific path resolver
+const platform = require('../platforms');
 
 /**
  * Get the audio URL for a YouTube video
@@ -24,7 +15,7 @@ function getYtdlpPath() {
  */
 async function getAudioUrl(videoId) {
     return new Promise((resolve, reject) => {
-        const ytdlpPath = getYtdlpPath();
+        const ytdlpPath = platform.getYtdlpPath();
 
         const ytdlp = spawn(ytdlpPath, [
             '-g',
@@ -54,6 +45,13 @@ async function getAudioUrl(videoId) {
 
         ytdlp.on('error', reject);
     });
+}
+
+/**
+ * Get the path to the yt-dlp binary (delegates to platform module)
+ */
+function getYtdlpPath() {
+    return platform.getYtdlpPath();
 }
 
 module.exports = {

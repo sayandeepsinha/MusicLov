@@ -27,6 +27,7 @@ export default function Player() {
     const [isRepeat, setIsRepeat] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isSeeking, setIsSeeking] = useState(false);
 
     // When audio URL changes, stop old audio and load new
     useEffect(() => {
@@ -58,10 +59,19 @@ export default function Player() {
     }, [isPlaying, audioUrl]);
 
     const handleTimeUpdate = () => {
-        if (audioRef.current) {
+        // Don't update progress while user is seeking
+        if (audioRef.current && !isSeeking) {
             setProgress(audioRef.current.currentTime);
             setDuration(audioRef.current.duration || 0);
         }
+    };
+
+    const handleSeekStart = () => {
+        setIsSeeking(true);
+    };
+
+    const handleSeekEnd = () => {
+        setIsSeeking(false);
     };
 
     const handleSeek = (e) => {
@@ -69,6 +79,7 @@ export default function Player() {
         setProgress(newTime);
         if (audioRef.current) {
             audioRef.current.currentTime = newTime;
+            console.log('[Player] Seeking to:', newTime);
         }
     };
 
@@ -161,7 +172,12 @@ export default function Player() {
                                         type="range"
                                         min="0"
                                         max={duration || 100}
+                                        step="0.1"
                                         value={progress}
+                                        onMouseDown={handleSeekStart}
+                                        onTouchStart={handleSeekStart}
+                                        onMouseUp={handleSeekEnd}
+                                        onTouchEnd={handleSeekEnd}
                                         onChange={handleSeek}
                                         className="flex-1 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
                                     />
@@ -243,7 +259,12 @@ export default function Player() {
                                     type="range"
                                     min="0"
                                     max={duration || 100}
+                                    step="0.1"
                                     value={progress}
+                                    onMouseDown={handleSeekStart}
+                                    onTouchStart={handleSeekStart}
+                                    onMouseUp={handleSeekEnd}
+                                    onTouchEnd={handleSeekEnd}
                                     onChange={handleSeek}
                                     className="flex-1 h-1 bg-neutral-600 rounded-lg appearance-none cursor-pointer accent-purple-500"
                                 />

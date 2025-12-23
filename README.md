@@ -2,7 +2,7 @@
 
 A beautiful, ad-free music streaming desktop app built with Electron and React.
 
-![MusicLov](https://img.shields.io/badge/version-1.0.0-purple)
+![MusicLov](https://img.shields.io/badge/version-1.1.0-purple)
 ![Platform](https://img.shields.io/badge/platform-macOS-blue)
 
 ## Features
@@ -50,17 +50,20 @@ npm run package
 
 ```
 musicLov/
-├── electron/              # Electron main process
+├── main/                  # Electron main process
 │   ├── main.js           # Entry point
 │   ├── preload.js        # Preload script
+│   ├── common/           # Shared constants
+│   ├── platforms/        # Platform-specific code
 │   └── services/         # Backend services
 │       ├── innertube.js  # YouTube Music API
 │       ├── proxy.js      # Audio proxy server
+│       ├── localLibrary.js # Local music library
 │       └── ytdlp.js      # yt-dlp integration
 ├── src/                  # React frontend
 │   ├── App.jsx           # Main app component
 │   ├── components/       # UI components
-│   ├── constants/        # App constants
+│   ├── common/           # Shared utilities (db.js)
 │   └── context/          # React context
 ├── public/               # Static assets
 └── binaries/             # yt-dlp binary (not in git)
