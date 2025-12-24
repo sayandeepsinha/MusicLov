@@ -13,7 +13,7 @@ const { parseFile } = require('music-metadata');
 
 // Import from common and platforms
 const { AUDIO_EXTENSIONS, IGNORED_DIRS } = require('../common');
-const platform = require('../platforms');
+const platform = require('../platform');
 
 /**
  * Check if a file is an audio file based on extension

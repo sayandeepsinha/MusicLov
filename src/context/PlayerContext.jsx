@@ -98,12 +98,22 @@ export function PlayerProvider({ children }) {
         console.log('[PlayerContext] Fetching audio for:', videoId);
 
         try {
-            // Check if song is downloaded first
+            // Check if song is marked as downloaded
             const downloaded = downloads.find(d => d.videoId === videoId);
-            if (downloaded && downloaded.audioUrl) {
-                console.log('[PlayerContext] Using offline audio');
-                setAudioUrl(downloaded.audioUrl);
-                return downloaded.audioUrl;
+            if (downloaded && downloaded.filePath) {
+                // Song is downloaded - play from local file
+                const url = await window.electronAPI.getLocalFileUrl(downloaded.filePath);
+                if (url) {
+                    console.log('[PlayerContext] Playing downloaded file:', downloaded.filePath);
+                    setAudioUrl(url);
+                    setIsLoadingAudio(false);
+                    return url;
+                } else {
+                    // File was deleted - show error, don't fallback to YouTube
+                    console.error('[PlayerContext] Downloaded file not found:', downloaded.filePath);
+                    setIsLoadingAudio(false);
+                    return null;
+                }
             }
 
             // Otherwise fetch from internet
@@ -219,34 +229,54 @@ export function PlayerProvider({ children }) {
     // Download a song for offline playback
     const downloadSong = async (song) => {
         const videoId = song.videoId || song.key;
-        if (!videoId) return false;
-
-        // Check if already downloaded
-        if (downloads.some(d => d.videoId === videoId)) {
-            console.log('[PlayerContext] Song already downloaded');
-            return true;
-        }
+        if (!videoId || !window.electronAPI) return false;
 
         try {
-            console.log('[PlayerContext] Downloading song:', song.title);
+            // Ask backend if file already exists on disk
+            const existingPath = await window.electronAPI.isSongDownloaded(videoId, {
+                title: song.title,
+                artist: song.artist || 'Unknown Artist',
+            });
 
-            // Get audio URL
-            const url = await window.electronAPI.getAudioUrl(videoId);
-            if (!url) throw new Error('Failed to get audio URL');
+            if (existingPath) {
+                console.log('[PlayerContext] Already downloaded:', existingPath);
+                // Sync to IndexedDB if not there
+                if (!downloads.some(d => d.videoId === videoId)) {
+                    const downloadedSong = {
+                        videoId,
+                        title: song.title,
+                        artist: song.artist,
+                        thumbnail: song.thumbnail,
+                        filePath: existingPath,
+                        downloadedAt: Date.now(),
+                    };
+                    await saveDownload(downloadedSong);
+                    setDownloads(prev => [...prev, downloadedSong]);
+                }
+                return true;
+            }
 
-            // Save song metadata with audio URL to IndexedDB
+            // Download via backend
+            console.log('[PlayerContext] Downloading:', song.title);
+            const result = await window.electronAPI.downloadSong(videoId, {
+                title: song.title,
+                artist: song.artist || 'Unknown Artist',
+            });
+
+            if (!result?.filePath) throw new Error('Download failed');
+
+            // Save metadata to IndexedDB
             const downloadedSong = {
                 videoId,
                 title: song.title,
                 artist: song.artist,
                 thumbnail: song.thumbnail,
-                audioUrl: url, // Store the streaming URL
+                filePath: result.filePath,
                 downloadedAt: Date.now(),
             };
-
             await saveDownload(downloadedSong);
             setDownloads(prev => [...prev, downloadedSong]);
-            console.log('[PlayerContext] Downloaded successfully');
+            console.log('[PlayerContext] Downloaded to:', result.filePath);
             return true;
         } catch (error) {
             console.error('[PlayerContext] Download failed:', error);
@@ -257,6 +287,21 @@ export function PlayerProvider({ children }) {
     // Delete a downloaded song
     const deleteDownload = async (videoId) => {
         try {
+            const downloaded = downloads.find(d => d.videoId === videoId);
+
+            // Backend deletes file from disk
+            if (downloaded?.filePath && window.electronAPI) {
+                await window.electronAPI.deleteDownload(downloaded.filePath);
+            }
+
+            // Stop playback if this song is playing
+            const currentVideoId = currentSong?.videoId || currentSong?.key;
+            if (currentVideoId === videoId) {
+                setAudioUrl(null);
+                setIsPlaying(false);
+            }
+
+            // Remove from IndexedDB
             await removeDownload(videoId);
             setDownloads(prev => prev.filter(d => d.videoId !== videoId));
         } catch (error) {

@@ -2,12 +2,16 @@
   "name": "musiclov",
   "version": "1.1.0",
   "description": "MusicLov - Stream your favorite tracks, ad-free",
-  "main": "main/main.js",
+  "main": "src/electronlogic/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5050 && electron .\"",
-    "package": "npm run build && electron-builder --mac"
+    "package": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win",
+    "package:linux": "npm run build && electron-builder --linux",
+    "package:all": "npm run build && electron-builder --mac --win --linux",
+    "postinstall": "bash scripts/download-ytdlp.sh || echo 'Note: Run scripts/download-ytdlp.sh manually on Windows'"
   },
   "build": {
     "appId": "com.musiclov.app",
@@ -20,9 +24,24 @@
         "zip"
       ]
     },
+    "win": {
+      "icon": "public/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "icon": "public/icon.png",
+      "category": "Audio",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
     "files": [
       "dist/**/*",
-      "main/**/*",
+      "src/electronlogic/**/*",
       "binaries/**/*"
     ],
     "extraResources": [

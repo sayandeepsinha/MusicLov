@@ -118,21 +118,8 @@ function startProxyServer() {
     });
 }
 
-/**
- * Stop the proxy server
- */
-function stopProxyServer() {
-    if (proxyServer) {
-        proxyServer.close();
-        proxyServer = null;
-    }
-}
-
 module.exports = {
     startProxyServer,
-    stopProxyServer,
     cacheAudioUrl,
     getProxyUrl,
-    getCache,
-    PROXY_PORT,
 };

@@ -40,7 +40,7 @@ function createWindow() {
     if (isDev) {
         mainWindow.loadURL('http://localhost:5050');
     } else {
-        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+        mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
     }
 
     mainWindow.on('closed', () => {
@@ -210,3 +210,23 @@ ipcMain.handle('get-platform-info', async () => {
     return localLibrary.getPlatformInfo();
 });
 
+// ========== DOWNLOAD IPC HANDLERS ==========
+
+const { download } = require('./services');
+
+ipcMain.handle('download-song', async (event, { videoId, songInfo }) => {
+    console.log('[Main] Downloading:', songInfo.title);
+    return download.downloadSong(videoId, songInfo);
+});
+
+ipcMain.handle('is-song-downloaded', async (event, { videoId, songInfo }) => {
+    return download.isAlreadyDownloaded(videoId, songInfo);
+});
+
+ipcMain.handle('get-downloaded-songs', async () => {
+    return download.getDownloadedSongs();
+});
+
+ipcMain.handle('delete-download', async (event, filePath) => {
+    return download.deleteDownload(filePath);
+});
