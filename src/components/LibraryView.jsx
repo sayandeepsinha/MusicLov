@@ -265,7 +265,7 @@ function DownloadsList({ downloads, onPlay, onDelete }) {
                 <SongRow
                     key={song.videoId}
                     song={song}
-                    onPlay={() => onPlay(song)}
+                    onPlay={() => onPlay(song, downloads)} // Pass full downloads array as queue
                     onRemove={() => onDelete(song.videoId)}
                     thumbnail={song.thumbnail?.url}
                 />

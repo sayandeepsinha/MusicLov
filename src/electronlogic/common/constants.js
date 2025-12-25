@@ -3,8 +3,8 @@
  * Shared constants used across all services
  */
 
-// Supported audio file extensions
-const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac', '.wma', '.opus'];
+// Supported audio file extensions (includes .webm for yt-dlp downloads)
+const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.flac', '.ogg', '.aac', '.wma', '.opus', '.webm'];
 
 // MIME types for audio files
 const MIME_TYPES = {

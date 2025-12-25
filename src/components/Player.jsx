@@ -28,10 +28,15 @@ export default function Player() {
     const [isMaximized, setIsMaximized] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSeeking, setIsSeeking] = useState(false);
+    // Track if we're programmatically controlling playback (to avoid feedback loops)
+    const isProgrammaticRef = useRef(false);
 
     // When audio URL changes, stop old audio and load new
     useEffect(() => {
         if (audioRef.current) {
+            // Mark as programmatic to prevent onPause/onPlay handlers from interfering
+            isProgrammaticRef.current = true;
+
             // Stop and reset current audio first
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
@@ -45,18 +50,99 @@ export default function Player() {
                     .then(() => setIsPlaying(true))
                     .catch(e => console.error('[Player] Play failed:', e));
             }
+
+            // Reset flag after a short delay
+            setTimeout(() => { isProgrammaticRef.current = false; }, 200);
         }
     }, [audioUrl, setIsPlaying]);
 
     // Sync play/pause state
     useEffect(() => {
         if (!audioRef.current || !audioUrl) return;
+        isProgrammaticRef.current = true;
         if (isPlaying) {
             audioRef.current.play().catch(() => { });
         } else {
             audioRef.current.pause();
         }
+        // Reset flag after a short delay to allow the event to fire
+        setTimeout(() => { isProgrammaticRef.current = false; }, 100);
     }, [isPlaying, audioUrl]);
+
+    // Setup MediaSession API for keyboard media keys (next, previous, play, pause)
+    useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+
+        // Set action handlers for media keys
+        navigator.mediaSession.setActionHandler('play', () => {
+            if (audioRef.current && audioUrl) {
+                audioRef.current.play().catch(() => { });
+                setIsPlaying(true);
+            }
+        });
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                setIsPlaying(false);
+            }
+        });
+
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            playPrevious();
+        });
+
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            playNext();
+        });
+
+        // Optional: Seek backward/forward (for keyboards with these keys)
+        navigator.mediaSession.setActionHandler('seekbackward', () => {
+            if (audioRef.current) {
+                audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10);
+            }
+        });
+
+        navigator.mediaSession.setActionHandler('seekforward', () => {
+            if (audioRef.current) {
+                audioRef.current.currentTime = Math.min(
+                    audioRef.current.duration || 0,
+                    audioRef.current.currentTime + 10
+                );
+            }
+        });
+
+        // Cleanup on unmount
+        return () => {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.setActionHandler('play', null);
+                navigator.mediaSession.setActionHandler('pause', null);
+                navigator.mediaSession.setActionHandler('previoustrack', null);
+                navigator.mediaSession.setActionHandler('nexttrack', null);
+                navigator.mediaSession.setActionHandler('seekbackward', null);
+                navigator.mediaSession.setActionHandler('seekforward', null);
+            }
+        };
+    }, [audioUrl, playNext, playPrevious, setIsPlaying]);
+
+    // Update MediaSession metadata when song changes (shows in OS media controls)
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !currentSong) return;
+
+        const thumbnailUrl = currentSong.thumbnail?.url || currentSong.thumbnail?.thumbnails?.[0]?.url;
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: currentSong.title || 'Unknown Title',
+            artist: currentSong.artist || currentSong.authors?.map(a => a.name).join(', ') || 'Unknown Artist',
+            album: currentSong.album || 'MusicLov',
+            artwork: thumbnailUrl ? [
+                { src: thumbnailUrl, sizes: '96x96', type: 'image/jpeg' },
+                { src: thumbnailUrl, sizes: '128x128', type: 'image/jpeg' },
+                { src: thumbnailUrl, sizes: '256x256', type: 'image/jpeg' },
+                { src: thumbnailUrl, sizes: '512x512', type: 'image/jpeg' },
+            ] : []
+        });
+    }, [currentSong]);
 
     const handleTimeUpdate = () => {
         // Don't update progress while user is seeking
@@ -126,6 +212,14 @@ export default function Player() {
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={(e) => setDuration(e.target.duration)}
                 onEnded={handleEnded}
+                onPlay={() => {
+                    // Only sync if this was triggered externally (media keys)
+                    if (!isProgrammaticRef.current) setIsPlaying(true);
+                }}
+                onPause={() => {
+                    // Only sync if this was triggered externally (media keys)
+                    if (!isProgrammaticRef.current) setIsPlaying(false);
+                }}
                 className="hidden"
             />
 

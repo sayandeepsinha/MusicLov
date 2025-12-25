@@ -223,10 +223,6 @@ ipcMain.handle('is-song-downloaded', async (event, { videoId, songInfo }) => {
     return download.isAlreadyDownloaded(videoId, songInfo);
 });
 
-ipcMain.handle('get-downloaded-songs', async () => {
-    return download.getDownloadedSongs();
-});
-
 ipcMain.handle('delete-download', async (event, filePath) => {
     return download.deleteDownload(filePath);
 });

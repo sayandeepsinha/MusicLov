@@ -1,20 +1,12 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import {
-    openDB,
-    getAllDownloads,
-    saveDownload,
-    removeDownload,
-    getAllLocalSongs,
-    saveLocalSongs,
-    clearLocalLibrary,
-    getSetting,
-    saveSetting,
-    deleteLocalSong,
-} from '../common/db';
+import { getAllDownloads, deleteLocalSong } from '../common/db';
+import * as libraryService from '../services/libraryService';
+import * as downloadService from '../services/downloadService';
 
 const PlayerContext = createContext();
 
 export function PlayerProvider({ children }) {
+    // Player state
     const [currentSong, setCurrentSong] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [queue, setQueue] = useState([]);
@@ -38,19 +30,17 @@ export function PlayerProvider({ children }) {
             .then(setDownloads)
             .catch(err => console.error('Failed to load downloads:', err));
 
-        getAllLocalSongs()
-            .then(setLocalLibrary)
-            .catch(err => console.error('Failed to load local library:', err));
-
-        getSetting('importedFolders')
-            .then(folders => setImportedFolders(folders || []))
-            .catch(err => console.error('Failed to load imported folders:', err));
+        libraryService.loadLibraryData()
+            .then(({ localLibrary: lib, importedFolders: folders }) => {
+                setLocalLibrary(lib);
+                setImportedFolders(folders);
+            })
+            .catch(err => console.error('Failed to load library data:', err));
     }, []);
 
     // Auto-scan default music folder on every app launch
     useEffect(() => {
         const autoScan = async () => {
-            // Prevent duplicate scans in React Strict Mode
             if (scanInitiatedRef.current) {
                 console.log('[PlayerContext] Scan already initiated, skipping');
                 return;
@@ -63,72 +53,21 @@ export function PlayerProvider({ children }) {
                     await scanDefaultMusicFolder();
                 } catch (err) {
                     console.error('Auto-scan failed:', err);
-                    scanInitiatedRef.current = false; // Reset on error
+                    scanInitiatedRef.current = false;
                 }
             }
         };
         autoScan();
     }, []);
 
+    // ========== AUDIO PLAYBACK ==========
+
     const fetchAudioUrl = async (song) => {
-        if (!song) return null;
-
         setIsLoadingAudio(true);
-
-        // Handle local files
-        if (song.isLocal && song.filePath) {
-            console.log('[PlayerContext] Playing local file:', song.filePath);
-            try {
-                const url = await window.electronAPI.getLocalFileUrl(song.filePath);
-                console.log('[PlayerContext] Got local file URL');
-                setAudioUrl(url);
-                return url;
-            } catch (error) {
-                console.error('[PlayerContext] Failed to get local file URL:', error);
-                return null;
-            } finally {
-                setIsLoadingAudio(false);
-            }
-        }
-
-        // Handle online songs
-        const videoId = song.videoId || song.key || song.id;
-        if (!videoId) return null;
-
-        console.log('[PlayerContext] Fetching audio for:', videoId);
-
         try {
-            // Check if song is marked as downloaded
-            const downloaded = downloads.find(d => d.videoId === videoId);
-            if (downloaded && downloaded.filePath) {
-                // Song is downloaded - play from local file
-                const url = await window.electronAPI.getLocalFileUrl(downloaded.filePath);
-                if (url) {
-                    console.log('[PlayerContext] Playing downloaded file:', downloaded.filePath);
-                    setAudioUrl(url);
-                    setIsLoadingAudio(false);
-                    return url;
-                } else {
-                    // File was deleted - show error, don't fallback to YouTube
-                    console.error('[PlayerContext] Downloaded file not found:', downloaded.filePath);
-                    setIsLoadingAudio(false);
-                    return null;
-                }
-            }
-
-            // Otherwise fetch from internet
-            if (window.electronAPI) {
-                const url = await window.electronAPI.getAudioUrl(videoId);
-                console.log('[PlayerContext] Got audio URL');
-                setAudioUrl(url);
-                return url;
-            } else {
-                console.error('[PlayerContext] Electron API not available');
-                return null;
-            }
-        } catch (error) {
-            console.error('[PlayerContext] Failed to get audio URL:', error);
-            return null;
+            const url = await downloadService.fetchAudioUrl(song, downloads);
+            setAudioUrl(url);
+            return url;
         } finally {
             setIsLoadingAudio(false);
         }
@@ -136,33 +75,41 @@ export function PlayerProvider({ children }) {
 
     const playSong = async (song, relatedSongs = []) => {
         console.log('[PlayerContext] Playing song:', song.title);
-
-        // Stop current audio immediately
         setAudioUrl(null);
 
-        // If relatedSongs (context/queue) is provided and has more than 1 item, use it as the queue
-        // Otherwise, fallback to the old behavior (song + related) for single tracks/search results
         let newQueue = [];
         let newIndex = 0;
 
         if (relatedSongs.length > 0) {
-            // Check if we are playing from a list/library
-            const index = relatedSongs.findIndex(s =>
-                (s.videoId && s.videoId === song.videoId) ||
-                (s.id && s.id === song.id)
-            );
+            // Find the song index using multiple matching strategies:
+            // 1. filePath for local songs (most reliable)
+            // 2. videoId for streaming/downloaded songs
+            // 3. id as fallback
+            const index = relatedSongs.findIndex(s => {
+                // For local songs, match by filePath (guaranteed unique)
+                if (song.filePath && s.filePath) {
+                    return s.filePath === song.filePath;
+                }
+                // For streaming/downloaded songs, match by videoId
+                if (song.videoId && s.videoId) {
+                    return s.videoId === song.videoId;
+                }
+                // Fallback to id
+                if (song.id && s.id) {
+                    return s.id === song.id;
+                }
+                return false;
+            });
 
             if (index !== -1) {
-                // We found the song in the provided list, so use the list as-is (preserving order)
                 newQueue = [...relatedSongs];
                 newIndex = index;
             } else {
-                // Song not in list, fallback to putting it first
+                // Song not found in list, add it at the beginning
                 newQueue = [song, ...relatedSongs];
                 newIndex = 0;
             }
         } else {
-            // Single song play
             newQueue = [song];
             newIndex = 0;
         }
@@ -180,9 +127,7 @@ export function PlayerProvider({ children }) {
             const nextIndex = currentIndex + 1;
             const nextSong = queue[nextIndex];
 
-            // Stop current audio immediately
             setAudioUrl(null);
-
             setCurrentIndex(nextIndex);
             setCurrentSong(nextSong);
             setIsPlaying(true);
@@ -196,9 +141,7 @@ export function PlayerProvider({ children }) {
             const prevIndex = currentIndex - 1;
             const prevSong = queue[prevIndex];
 
-            // Stop current audio immediately
             setAudioUrl(null);
-
             setCurrentIndex(prevIndex);
             setCurrentSong(prevSong);
             setIsPlaying(true);
@@ -215,9 +158,7 @@ export function PlayerProvider({ children }) {
         if (index >= 0 && index < queue.length) {
             const song = queue[index];
 
-            // Stop current audio immediately
             setAudioUrl(null);
-
             setCurrentIndex(index);
             setCurrentSong(song);
             setIsPlaying(true);
@@ -226,97 +167,36 @@ export function PlayerProvider({ children }) {
         }
     };
 
-    // Download a song for offline playback
+    // ========== DOWNLOAD FUNCTIONS ==========
+
     const downloadSong = async (song) => {
-        const videoId = song.videoId || song.key;
-        if (!videoId || !window.electronAPI) return false;
-
-        try {
-            // Ask backend if file already exists on disk
-            const existingPath = await window.electronAPI.isSongDownloaded(videoId, {
-                title: song.title,
-                artist: song.artist || 'Unknown Artist',
-            });
-
-            if (existingPath) {
-                console.log('[PlayerContext] Already downloaded:', existingPath);
-                // Sync to IndexedDB if not there
-                if (!downloads.some(d => d.videoId === videoId)) {
-                    const downloadedSong = {
-                        videoId,
-                        title: song.title,
-                        artist: song.artist,
-                        thumbnail: song.thumbnail,
-                        filePath: existingPath,
-                        downloadedAt: Date.now(),
-                    };
-                    await saveDownload(downloadedSong);
-                    setDownloads(prev => [...prev, downloadedSong]);
-                }
-                return true;
-            }
-
-            // Download via backend
-            console.log('[PlayerContext] Downloading:', song.title);
-            const result = await window.electronAPI.downloadSong(videoId, {
-                title: song.title,
-                artist: song.artist || 'Unknown Artist',
-            });
-
-            if (!result?.filePath) throw new Error('Download failed');
-
-            // Save metadata to IndexedDB
-            const downloadedSong = {
-                videoId,
-                title: song.title,
-                artist: song.artist,
-                thumbnail: song.thumbnail,
-                filePath: result.filePath,
-                downloadedAt: Date.now(),
-            };
-            await saveDownload(downloadedSong);
-            setDownloads(prev => [...prev, downloadedSong]);
-            console.log('[PlayerContext] Downloaded to:', result.filePath);
-            return true;
-        } catch (error) {
-            console.error('[PlayerContext] Download failed:', error);
-            return false;
+        const result = await downloadService.downloadSong(song, downloads);
+        if (result.success && result.downloadedSong) {
+            setDownloads(prev => [...prev, result.downloadedSong]);
         }
+        return result.success;
     };
 
-    // Delete a downloaded song
     const deleteDownload = async (videoId) => {
-        try {
-            const downloaded = downloads.find(d => d.videoId === videoId);
+        // Stop playback if this song is playing
+        const currentVideoId = currentSong?.videoId || currentSong?.key;
+        if (currentVideoId === videoId) {
+            setAudioUrl(null);
+            setIsPlaying(false);
+        }
 
-            // Backend deletes file from disk
-            if (downloaded?.filePath && window.electronAPI) {
-                await window.electronAPI.deleteDownload(downloaded.filePath);
-            }
-
-            // Stop playback if this song is playing
-            const currentVideoId = currentSong?.videoId || currentSong?.key;
-            if (currentVideoId === videoId) {
-                setAudioUrl(null);
-                setIsPlaying(false);
-            }
-
-            // Remove from IndexedDB
-            await removeDownload(videoId);
+        const result = await downloadService.deleteDownloadedSong(videoId, downloads);
+        if (result.success) {
             setDownloads(prev => prev.filter(d => d.videoId !== videoId));
-        } catch (error) {
-            console.error('Failed to delete download:', error);
         }
     };
 
-    // Check if a song is downloaded
     const isDownloaded = (videoId) => {
-        return downloads.some(d => d.videoId === videoId);
+        return downloadService.isDownloaded(videoId, downloads);
     };
 
     // ========== LOCAL LIBRARY FUNCTIONS ==========
 
-    // Scan the default music folder
     const scanDefaultMusicFolder = async () => {
         if (!window.electronAPI) return null;
 
@@ -324,21 +204,10 @@ export function PlayerProvider({ children }) {
         setScanProgress('Scanning default Music folder...');
 
         try {
-            const result = await window.electronAPI.scanDefaultMusicFolder();
-
-            if (result && result.songs.length > 0) {
-                // Merge with existing local library (avoid duplicates)
-                const existingPaths = new Set(localLibrary.map(s => s.filePath));
-                const newSongs = result.songs.filter(s => !existingPaths.has(s.filePath));
-
-                if (newSongs.length > 0) {
-                    await saveLocalSongs(newSongs);
-                    setLocalLibrary(prev => [...prev, ...newSongs]);
-                }
-
-                console.log(`[PlayerContext] Added ${newSongs.length} new local songs`);
+            const { result, newSongs } = await libraryService.scanDefaultMusicFolder(localLibrary);
+            if (newSongs.length > 0) {
+                setLocalLibrary(prev => [...prev, ...newSongs]);
             }
-
             return result;
         } catch (error) {
             console.error('[PlayerContext] Failed to scan default folder:', error);
@@ -349,38 +218,28 @@ export function PlayerProvider({ children }) {
         }
     };
 
-    // Open folder picker and import selected folders
     const importMusicFolder = async () => {
         if (!window.electronAPI) return null;
 
         try {
-            const folderPaths = await window.electronAPI.selectMusicFolder();
-            if (!folderPaths || folderPaths.length === 0) return null;
-
             setIsScanning(true);
-            setScanProgress(`Importing ${folderPaths.length} folder(s)...`);
+            setScanProgress('Selecting folder...');
 
-            const result = await window.electronAPI.importMusicFolders(folderPaths);
-
-            if (result && result.songs.length > 0) {
-                // Merge with existing local library (avoid duplicates)
-                const existingPaths = new Set(localLibrary.map(s => s.filePath));
-                const newSongs = result.songs.filter(s => !existingPaths.has(s.filePath));
-
-                if (newSongs.length > 0) {
-                    await saveLocalSongs(newSongs);
-                    setLocalLibrary(prev => [...prev, ...newSongs]);
-                }
-
-                // Save imported folder paths
-                const newFolders = [...new Set([...importedFolders, ...folderPaths])];
-                setImportedFolders(newFolders);
-                await saveSetting('importedFolders', newFolders);
-
-                console.log(`[PlayerContext] Imported ${newSongs.length} new songs from selected folders`);
+            const result = await libraryService.importMusicFolder(localLibrary, importedFolders);
+            if (!result) {
+                return null;
             }
 
-            return result;
+            setScanProgress(`Importing ${result.folderPaths?.length || 1} folder(s)...`);
+
+            if (result.newSongs.length > 0) {
+                setLocalLibrary(prev => [...prev, ...result.newSongs]);
+            }
+            if (result.updatedFolders) {
+                setImportedFolders(result.updatedFolders);
+            }
+
+            return result.result;
         } catch (error) {
             console.error('[PlayerContext] Failed to import folders:', error);
             throw error;
@@ -390,7 +249,6 @@ export function PlayerProvider({ children }) {
         }
     };
 
-    // Rescan all imported folders
     const rescanLibrary = async () => {
         if (!window.electronAPI) return;
 
@@ -398,31 +256,8 @@ export function PlayerProvider({ children }) {
         setScanProgress('Rescanning library...');
 
         try {
-            // Clear existing local library
-            await clearLocalLibrary();
-            setLocalLibrary([]);
-
-            // Scan default folder
-            const defaultResult = await window.electronAPI.scanDefaultMusicFolder();
-            let allSongs = defaultResult?.songs || [];
-
-            // Scan imported folders
-            if (importedFolders.length > 0) {
-                const importResult = await window.electronAPI.importMusicFolders(importedFolders);
-                if (importResult?.songs) {
-                    allSongs = [...allSongs, ...importResult.songs];
-                }
-            }
-
-            // Remove duplicates by file path
-            const uniqueSongs = Array.from(
-                new Map(allSongs.map(s => [s.filePath, s])).values()
-            );
-
-            await saveLocalSongs(uniqueSongs);
+            const uniqueSongs = await libraryService.rescanLibrary(importedFolders);
             setLocalLibrary(uniqueSongs);
-
-            console.log(`[PlayerContext] Rescanned library: ${uniqueSongs.length} songs`);
         } catch (error) {
             console.error('[PlayerContext] Rescan failed:', error);
         } finally {
@@ -431,7 +266,6 @@ export function PlayerProvider({ children }) {
         }
     };
 
-    // Remove a song from local library
     const removeLocalSong = async (songId) => {
         try {
             await deleteLocalSong(songId);
@@ -440,7 +274,6 @@ export function PlayerProvider({ children }) {
             console.error('[PlayerContext] Failed to remove local song:', error);
         }
     };
-
 
     return (
         <PlayerContext.Provider
@@ -482,4 +315,3 @@ export function PlayerProvider({ children }) {
 export function usePlayer() {
     return useContext(PlayerContext);
 }
-

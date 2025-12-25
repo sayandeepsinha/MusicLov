@@ -16,6 +16,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Download APIs
     downloadSong: (videoId, songInfo) => ipcRenderer.invoke('download-song', { videoId, songInfo }),
     isSongDownloaded: (videoId, songInfo) => ipcRenderer.invoke('is-song-downloaded', { videoId, songInfo }),
-    getDownloadedSongs: () => ipcRenderer.invoke('get-downloaded-songs'),
     deleteDownload: (filePath) => ipcRenderer.invoke('delete-download', filePath),
 });

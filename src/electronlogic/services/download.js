@@ -6,9 +6,9 @@ const path = require('path');
 const fs = require('fs').promises;
 const { existsSync, mkdirSync, readdirSync } = require('fs');
 const platform = require('../platform');
+const { AUDIO_EXTENSIONS } = require('../common');
 
 const DOWNLOADS_FOLDER = 'MusicLov Downloads';
-const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.opus', '.webm', '.ogg'];
 
 // Get downloads path, create if needed
 function getDownloadsPath() {
@@ -71,15 +71,7 @@ function isAlreadyDownloaded(videoId, songInfo) {
     return found ? path.join(getDownloadsPath(), found) : null;
 }
 
-// Get all downloaded files from disk
-async function getDownloadedSongs() {
-    try {
-        const files = await fs.readdir(getDownloadsPath());
-        return files
-            .filter(f => AUDIO_EXTENSIONS.some(ext => f.endsWith(ext)))
-            .map(f => path.join(getDownloadsPath(), f));
-    } catch { return []; }
-}
+
 
 // Delete a file from disk
 async function deleteDownload(filePath) {
@@ -93,6 +85,5 @@ async function deleteDownload(filePath) {
 module.exports = {
     downloadSong,
     isAlreadyDownloaded,
-    getDownloadedSongs,
     deleteDownload,
 };
