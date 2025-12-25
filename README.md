@@ -46,36 +46,11 @@ npm run electron:dev
 npm run package
 ```
 
-## Project Structure
-
-```
-musicLov/
-├── main/                  # Electron main process
-│   ├── main.js           # Entry point
-│   ├── preload.js        # Preload script
-│   ├── common/           # Shared constants
-│   ├── platforms/        # Platform-specific code
-│   └── services/         # Backend services
-│       ├── innertube.js  # YouTube Music API
-│       ├── proxy.js      # Audio proxy server
-│       ├── localLibrary.js # Local music library
-│       └── ytdlp.js      # yt-dlp integration
-├── src/                  # React frontend
-│   ├── App.jsx           # Main app component
-│   ├── components/       # UI components
-│   ├── common/           # Shared utilities (db.js)
-│   └── context/          # React context
-├── public/               # Static assets
-└── binaries/             # yt-dlp binary (not in git)
-```
-
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server |
 | `npm run electron:dev` | Start Electron with hot reload |
-| `npm run build` | Build for production |
 | `npm run package` | Package as macOS app |
 
 ## License
