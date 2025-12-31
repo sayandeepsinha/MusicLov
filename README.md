@@ -2,7 +2,7 @@
 
 A beautiful, ad-free music streaming desktop app built with Electron and React.
 
-![MusicLov](https://img.shields.io/badge/version-1.1.0-purple)
+![MusicLov](https://img.shields.io/badge/version-1.8.0-purple)
 ![Platform](https://img.shields.io/badge/platform-macOS-blue)
 
 ## Features
