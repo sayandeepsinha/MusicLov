@@ -1,18 +1,16 @@
 /**
  * MusicLov - Main App Component
- * Orchestrates navigation and renders views
  */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayerProvider } from './context/PlayerContext';
-import {
-    TitleBar,
-    NavBar,
-    HomeView,
-    BrowseView,
-    LibraryView,
-    Player,
-} from './components';
+import TitleBar from './components/TitleBar';
+import NavBar from './components/NavBar';
+import HomeView from './components/HomeView';
+import BrowseView from './components/BrowseView';
+import LibraryView from './components/LibraryView';
+import Player from './components/Player';
+
 
 // Main App content with navigation
 function AppContent() {
