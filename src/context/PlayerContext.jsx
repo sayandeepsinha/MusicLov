@@ -108,8 +108,12 @@ export function PlayerProvider({ children }) {
         setIsScanning(true);
         setScanProgress('Scanning default Music folder...');
         try {
-            const { result, newSongs } = await mediaService.scanDefaultMusicFolder(localLibrary);
-            if (newSongs.length) setLocalLibrary(prev => [...prev, ...newSongs]);
+            const { result, newSongs } = await mediaService.scanDefaultMusicFolder();
+            // If new songs were added, refresh the entire library from DB to ensure consistency
+            if (newSongs.length) {
+                const freshLibrary = await mediaService.loadLibraryData();
+                setLocalLibrary(freshLibrary.localLibrary);
+            }
             return result;
         } catch (e) { console.error(e); }
         finally { setIsScanning(false); setScanProgress(null); }
@@ -120,10 +124,14 @@ export function PlayerProvider({ children }) {
         setIsScanning(true);
         setScanProgress('Selecting folder...');
         try {
-            const result = await mediaService.importMusicFolder(localLibrary, importedFolders);
+            const result = await mediaService.importMusicFolder(importedFolders);
             if (!result) return;
 
-            if (result.newSongs.length) setLocalLibrary(prev => [...prev, ...result.newSongs]);
+            // If new songs were added, refresh the entire library from DB to ensure consistency
+            if (result.newSongs.length) {
+                const freshLibrary = await mediaService.loadLibraryData();
+                setLocalLibrary(freshLibrary.localLibrary);
+            }
             if (result.updatedFolders) setImportedFolders(result.updatedFolders);
         } catch (e) { console.error(e); }
         finally { setIsScanning(false); setScanProgress(null); }

@@ -1,6 +1,6 @@
 {
   "name": "musiclov",
-  "version": "1.2.5",
+  "version": "1.8.0",
   "description": "MusicLov - Stream your favorite tracks, ad-free",
   "main": "src/electronlogic/main.js",
   "scripts": {

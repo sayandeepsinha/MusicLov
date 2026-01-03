@@ -1,17 +1,15 @@
-/**
- * Media Service - Unified frontend service for local library and downloads
- */
 import { getAllLocalSongs, saveLocalSongs, clearLocalLibrary, getSetting, saveSetting, saveDownload, removeDownload, getAllDownloads } from '../common/db';
-
-// ========== LIBRARY FUNCTIONS ==========
 
 const mergeWithExisting = (existing, newSongs) => {
     const paths = new Set(existing.map(s => s.filePath));
     return newSongs.filter(s => !paths.has(s.filePath));
 };
 
-export async function scanDefaultMusicFolder(currentLibrary = []) {
+export async function scanDefaultMusicFolder() {
     if (!window.electronAPI) return { result: null, newSongs: [] };
+    // Fetch current library directly from DB to avoid stale state issues
+    const currentLibrary = await getAllLocalSongs().catch(() => []);
+
     const result = await window.electronAPI.scanDefaultMusicFolder();
     if (result?.songs?.length) {
         const newSongs = mergeWithExisting(currentLibrary, result.songs);
@@ -21,10 +19,12 @@ export async function scanDefaultMusicFolder(currentLibrary = []) {
     return { result, newSongs: [] };
 }
 
-export async function importMusicFolder(currentLibrary = [], importedFolders = []) {
+export async function importMusicFolder(importedFolders = []) {
     if (!window.electronAPI) return null;
     const folderPaths = await window.electronAPI.selectMusicFolder();
     if (!folderPaths?.length) return null;
+    // Fetch current library directly from DB to avoid stale state issues
+    const currentLibrary = await getAllLocalSongs().catch(() => []);
 
     const result = await window.electronAPI.importMusicFolders(folderPaths);
     if (result?.songs?.length) {
@@ -61,7 +61,7 @@ export async function loadLibraryData() {
     return { localLibrary: localLibrary || [], importedFolders: importedFolders || [] };
 }
 
-// ========== DOWNLOAD FUNCTIONS ==========
+// DOWNLOAD FUNCTIONS
 
 export { getAllDownloads };
 
