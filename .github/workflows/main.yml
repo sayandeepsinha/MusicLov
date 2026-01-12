@@ -3,22 +3,25 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # Triggered when you push a tag like v1.0.0
-  workflow_dispatch:  # Allow manual trigger
+      - "v*"
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
+      fail-fast: true
       matrix:
         include:
           - os: macos-latest
             platform: mac
             yt-dlp-binary: yt-dlp_macos
             yt-dlp-output: yt-dlp
+
           - os: windows-latest
             platform: win
             yt-dlp-binary: yt-dlp.exe
             yt-dlp-output: yt-dlp.exe
+
           - os: ubuntu-latest
             platform: linux
             yt-dlp-binary: yt-dlp_linux
@@ -27,14 +30,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -42,59 +45,85 @@ jobs:
       - name: Create binaries directory
         run: mkdir -p binaries
 
-      - name: Download yt-dlp binary
+      - name: Download yt-dlp
         run: |
           curl -L -o binaries/${{ matrix.yt-dlp-output }} https://github.com/yt-dlp/yt-dlp/releases/latest/download/${{ matrix.yt-dlp-binary }}
 
-      - name: Make yt-dlp executable (Unix)
+      - name: Make yt-dlp executable
         if: matrix.platform != 'win'
         run: chmod +x binaries/${{ matrix.yt-dlp-output }}
 
-      - name: Build Vite app
+      # 🔥 Linux build dependencies (THIS was the crash)
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libgtk-3-0 \
+            libnss3 \
+            libxss1 \
+            libasound2 \
+            libx11-xcb1 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxdamage1 \
+            libxrandr2 \
+            libgbm1 \
+            libdrm2 \
+            libxshmfence1 \
+            libxtst6 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libpangocairo-1.0-0 \
+            libxkbfile1
+
+      - name: Build Vite
         run: npm run build
 
-      - name: Build Electron app (macOS)
+      - name: Build Electron (macOS)
         if: matrix.platform == 'mac'
         run: npx electron-builder --mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Electron app (Windows)
+      - name: Build Electron (Windows)
         if: matrix.platform == 'win'
         run: npx electron-builder --win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Electron app (Linux)
+      - name: Build Electron (Linux)
         if: matrix.platform == 'linux'
         run: npx electron-builder --linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ⚠️ electron-builder outputs to dist/, not release/
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MusicLov-${{ matrix.platform }}
           path: |
-            release/*.dmg
-            release/*.zip
-            release/*.exe
-            release/*.AppImage
-            release/*.deb
-          if-no-files-found: warn
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
 
   release:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    
+
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/**/*
