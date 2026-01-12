@@ -9,7 +9,6 @@ on:
 jobs:
   build:
     strategy:
-      fail-fast: true
       matrix:
         include:
           - os: macos-latest
@@ -21,11 +20,6 @@ jobs:
             platform: win
             yt-dlp-binary: yt-dlp.exe
             yt-dlp-output: yt-dlp.exe
-
-          - os: ubuntu-latest
-            platform: linux
-            yt-dlp-binary: yt-dlp_linux
-            yt-dlp-output: yt-dlp
 
     runs-on: ${{ matrix.os }}
 
@@ -50,33 +44,8 @@ jobs:
           curl -L -o binaries/${{ matrix.yt-dlp-output }} https://github.com/yt-dlp/yt-dlp/releases/latest/download/${{ matrix.yt-dlp-binary }}
 
       - name: Make yt-dlp executable
-        if: matrix.platform != 'win'
+        if: matrix.platform == 'mac'
         run: chmod +x binaries/${{ matrix.yt-dlp-output }}
-
-      # 🔥 Linux build dependencies (THIS was the crash)
-      - name: Install Linux dependencies
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            libgtk-3-0 \
-            libnss3 \
-            libxss1 \
-            libasound2t64 \
-            libx11-xcb1 \
-            libxcomposite1 \
-            libxcursor1 \
-            libxdamage1 \
-            libxrandr2 \
-            libgbm1 \
-            libdrm2 \
-            libxshmfence1 \
-            libxtst6 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libpangocairo-1.0-0
-
 
       - name: Build Vite
         run: npm run build
@@ -93,13 +62,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Electron (Linux)
-        if: matrix.platform == 'linux'
-        run: npx electron-builder --linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ⚠️ electron-builder outputs to dist/, not release/
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -108,8 +70,6 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/*.exe
-            dist/*.AppImage
-            dist/*.deb
           if-no-files-found: error
 
   release:
