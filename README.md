@@ -2,32 +2,25 @@
 
 A beautiful, ad-free music streaming desktop app built with Electron and React.
 
-![MusicLov](https://img.shields.io/badge/version-1.8.0-purple)
+![MusicLov](https://img.shields.io/badge/version-1.8.5-purple)
 ![Platform](https://img.shields.io/badge/platform-macOS-blue)
 
 ## Features
 
-- 🎶 **Stream music** from YouTube Music
+- 🎶 **Stream music** from YouTube Music (Native Engine)
 - 🔍 **Search** for songs and artists
 - 📚 **Browse** trending categories (Hindi, English, Global, etc.)
 - 💾 **Offline playback** - Download songs for offline listening
 - 🎨 **Beautiful UI** with dark mode and smooth animations
-- 🚫 **No ads** - Pure music experience
+- �️ **High-Res Thumbnails** - Sharp artwork for every track
+- �🚫 **No ads** - Built-in native ad-blocking
 
 ## Tech Stack
 
 - **Frontend**: React + Vite + TailwindCSS
 - **Desktop**: Electron
-- **Audio**: yt-dlp for audio extraction
+- **Audio Engine**: Native Chromium-based playback (Zero external dependencies)
 - **API**: YouTube Music InnerTube API
-
-## Prerequisites
-
-Before running, you need to download the yt-dlp binary:
-
-1. Download yt-dlp for your platform from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)
-2. Place the binary in the `binaries/` folder
-3. Make it executable: `chmod +x binaries/yt-dlp`
 
 ## Installation
 
