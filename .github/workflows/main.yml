@@ -13,13 +13,9 @@ jobs:
         include:
           - os: macos-latest
             platform: mac
-            yt-dlp-binary: yt-dlp_macos
-            yt-dlp-output: yt-dlp
 
           - os: windows-latest
             platform: win
-            yt-dlp-binary: yt-dlp.exe
-            yt-dlp-output: yt-dlp.exe
 
     runs-on: ${{ matrix.os }}
 
@@ -35,21 +31,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      # 🔒 Cross-platform safe mkdir (bash everywhere)
-      - name: Create binaries directory
-        shell: bash
-        run: mkdir -p binaries
-
-      - name: Download yt-dlp
-        shell: bash
-        run: |
-          curl -L -o binaries/${{ matrix.yt-dlp-output }} https://github.com/yt-dlp/yt-dlp/releases/latest/download/${{ matrix.yt-dlp-binary }}
-
-      - name: Make yt-dlp executable (macOS)
-        if: matrix.platform == 'mac'
-        shell: bash
-        run: chmod +x binaries/${{ matrix.yt-dlp-output }}
 
       - name: Build Vite
         run: npm run build

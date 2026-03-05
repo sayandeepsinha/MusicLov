@@ -3,17 +3,19 @@
  */
 const { ipcMain } = require('electron');
 
-function registerHandlers({ proxy, youtube, innertube, localLibrary }) {
+function registerHandlers({ audioEngine, youtube, innertube, localLibrary }) {
     // Search & Browse
     ipcMain.handle('search', (_, query) => innertube.search(query));
     ipcMain.handle('browse', (_, { query, limit = 30 }) => innertube.browse(query, limit));
 
-    // Audio streaming
-    ipcMain.handle('get-audio-url', async (_, videoId) => {
-        const audioUrl = await youtube.getAudioUrl(videoId);
-        proxy.cacheAudioUrl(videoId, audioUrl);
-        return proxy.getProxyUrl(videoId);
-    });
+    // Audio Engine controls (YouTube playback)
+    ipcMain.handle('engine:play', (_, videoId) => audioEngine.play(videoId));
+    ipcMain.handle('engine:pause', () => audioEngine.pause());
+    ipcMain.handle('engine:resume', () => audioEngine.resume());
+    ipcMain.handle('engine:seek', (_, timeSeconds) => audioEngine.seek(timeSeconds));
+    ipcMain.handle('engine:set-volume', (_, volume) => audioEngine.setVolume(volume));
+    ipcMain.handle('engine:set-muted', (_, muted) => audioEngine.setMuted(muted));
+    ipcMain.handle('engine:stop', () => audioEngine.stop());
 
     // Local library
     ipcMain.handle('scan-default-music-folder', () => localLibrary.scanDefaultMusicFolder());
@@ -23,7 +25,7 @@ function registerHandlers({ proxy, youtube, innertube, localLibrary }) {
     ipcMain.handle('get-platform-info', () => localLibrary.getPlatformInfo());
 
     // Downloads
-    ipcMain.handle('download-song', (_, { videoId, songInfo }) => youtube.downloadSong(videoId, songInfo));
+    ipcMain.handle('download-song', (_, { videoId, songInfo }) => youtube.downloadSong(videoId, songInfo.title, songInfo));
     ipcMain.handle('is-song-downloaded', (_, { videoId, songInfo }) => youtube.isAlreadyDownloaded(videoId, songInfo));
     ipcMain.handle('delete-download', (_, filePath) => youtube.deleteDownload(filePath));
 }

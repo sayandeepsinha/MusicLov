@@ -16,12 +16,15 @@ if (protocol) {
 }
 
 // Services
-const proxy = require('./services/proxy');
+const audioEngine = require('./services/audioEngine');
 const youtube = require('./services/youtube');
 const innertube = require('./services/innertube');
 const localLibrary = require('./services/localLibrary');
 const { registerHandlers } = require('./services/ipc');
 const { MIME_TYPES } = require('./config');
+
+// Suppress noisy Chromium internal warnings (SharedImageManager, kern.hv_vmm_present, etc.)
+app.commandLine.appendSwitch('disable-logging');
 
 let mainWindow;
 
@@ -32,9 +35,15 @@ function createWindow() {
         webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js'), webSecurity: true },
     });
 
+    // Initialize the audio engine with a reference to the main window
+    audioEngine.init(mainWindow);
+
     const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
     isDev ? mainWindow.loadURL('http://localhost:5050') : mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
-    mainWindow.on('closed', () => { mainWindow = null; });
+    mainWindow.on('closed', () => {
+        audioEngine.destroy();
+        mainWindow = null;
+    });
 }
 
 // Media protocol handler for local file streaming with seek support
@@ -65,10 +74,10 @@ function handleMediaRequest(request) {
 
 app.whenReady().then(() => {
     protocol.handle('media', handleMediaRequest);
-    proxy.startProxyServer();
-    registerHandlers({ proxy, youtube, innertube, localLibrary });
+    registerHandlers({ audioEngine, youtube, innertube, localLibrary });
     createWindow();
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (!mainWindow) createWindow(); });
+app.on('before-quit', () => { audioEngine.destroy(); });

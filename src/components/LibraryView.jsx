@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Music, Library, Play, Trash2, FolderOpen, RefreshCw, HardDrive, Download, FileAudio, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayer } from '../context/PlayerContext';
+import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
 
 export default function LibraryView() {
     const {
@@ -69,7 +70,7 @@ export default function LibraryView() {
                         <tab.icon className="w-4 h-4" />
                         {tab.label}
                         <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{tab.count}</span>
-                    </button> // Removed extra parenthesis here
+                    </button>
                 ))}
             </div>
 
@@ -152,7 +153,15 @@ function SongRow({ song, onPlay, onRemove, thumbnail, showFormat }) {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 p-3 rounded-xl bg-neutral-900/50 hover:bg-neutral-800/50 transition-colors group">
             <div onClick={onPlay} className="flex items-center gap-4 flex-1 cursor-pointer">
                 {thumbnail ? (
-                    <img src={thumbnail} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                    <img
+                        src={upgradeThumbnailUrl(thumbnail)}
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = thumbnail;
+                        }}
+                        alt=""
+                        className="w-12 h-12 rounded-lg object-cover"
+                    />
                 ) : (
                     <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-600/30 to-blue-600/30 flex items-center justify-center">
                         <Music className="w-5 h-5 text-purple-400" />

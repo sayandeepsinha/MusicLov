@@ -16,16 +16,26 @@ function ProgressBar({ progress, duration, onSeekStart, onSeekEnd, onSeek, color
             onMouseDown={onSeekStart} onTouchStart={onSeekStart}
             onMouseUp={onSeekEnd} onTouchEnd={onSeekEnd}
             onChange={onSeek}
-            style={{ background: `linear-gradient(to right, ${color} ${pct}%, #404040 ${pct}%)` }}
+            style={{ background: `linear-gradient(to right, ${color} ${pct}%, #262626 ${pct}%)` }}
             className="flex-1 h-1 rounded-lg appearance-none cursor-pointer accent-purple-500"
         />
     );
 }
 
+import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
+
 // Thumbnail display with fallback
 function Thumbnail({ url, size = 'w-12 h-12', iconSize = 'w-6 h-6' }) {
     return url ? (
-        <img src={url} alt="" className={`${size} rounded-lg object-cover`} />
+        <img
+            src={upgradeThumbnailUrl(url)}
+            onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = url;
+            }}
+            alt=""
+            className={`${size} rounded-lg object-cover`}
+        />
     ) : (
         <div className={`${size} rounded-lg bg-neutral-800 flex items-center justify-center`}>
             <Music className={`${iconSize} text-neutral-600`} />
@@ -76,8 +86,8 @@ export function MaximizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio,
                             {isLoadingAudio ? <Loader2 className="w-6 h-6 animate-spin" /> : isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
                         </button>
                         <button onClick={onNext} disabled={currentIndex >= queue.length - 1} className="text-white hover:text-neutral-300 disabled:opacity-30"><SkipForward className="w-7 h-7" /></button>
-                        <button onClick={onDownload} disabled={isDownloading || songIsDownloaded} className={songIsDownloaded ? 'text-green-400' : 'text-neutral-500 hover:text-white disabled:opacity-50'}>
-                            {songIsDownloaded ? <Check className="w-5 h-5" /> : isDownloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                        <button disabled className="text-neutral-700 cursor-not-allowed">
+                            <Download className="w-5 h-5" />
                         </button>
                         <button onClick={onMute} className="text-neutral-500 hover:text-white">
                             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
@@ -129,8 +139,8 @@ export function MinimizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio,
 
                     <div className="flex items-center gap-3 flex-1 justify-end">
                         <button onClick={onRepeat} className={isRepeat ? 'text-purple-400' : 'text-neutral-400 hover:text-white'}><Repeat className="w-4 h-4" /></button>
-                        <button onClick={onDownload} disabled={isDownloading || songIsDownloaded} className={songIsDownloaded ? 'text-green-400' : 'text-neutral-400 hover:text-white disabled:opacity-50'}>
-                            {songIsDownloaded ? <Check className="w-4 h-4" /> : isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        <button disabled className="text-neutral-700 cursor-not-allowed">
+                            <Download className="w-4 h-4" />
                         </button>
                         <button onClick={onMute} className="text-neutral-400 hover:text-white">{isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}</button>
                         <button onClick={onMaximize} className="text-neutral-400 hover:text-white"><Maximize2 className="w-4 h-4" /></button>

@@ -10,8 +10,7 @@
     "package": "npm run build && electron-builder --mac",
     "package:win": "npm run build && electron-builder --win",
     "package:linux": "npm run build && electron-builder --linux",
-    "package:all": "npm run build && electron-builder --mac --win --linux",
-    "postinstall": "bash scripts/download-ytdlp.sh || echo 'Note: Run scripts/download-ytdlp.sh manually on Windows'"
+    "package:all": "npm run build && electron-builder --mac --win --linux"
   },
   "build": {
     "appId": "com.musiclov.app",
@@ -41,17 +40,7 @@
     },
     "files": [
       "dist/**/*",
-      "src/electronlogic/**/*",
-      "binaries/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "binaries",
-        "to": "binaries",
-        "filter": [
-          "**/*"
-        ]
-      }
+      "src/electronlogic/**/*"
     ],
     "directories": {
       "output": "release"

@@ -3,13 +3,9 @@
  */
 import { Play, Music } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
 
 export default function SongCard({ song, onClick }) {
-    const getHighResThumbnail = (url) => {
-        if (!url) return null;
-        return url.replace(/w\d+-h\d+/, 'w544-h544');
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -21,7 +17,11 @@ export default function SongCard({ song, onClick }) {
                 <div className="relative aspect-square">
                     {song.thumbnail?.url ? (
                         <img
-                            src={getHighResThumbnail(song.thumbnail.url)}
+                            src={upgradeThumbnailUrl(song.thumbnail.url)}
+                            onError={(e) => {
+                                e.target.onerror = null; // Prevent infinite loop
+                                e.target.src = song.thumbnail.url;
+                            }}
                             alt={song.title}
                             className="w-full h-full rounded-lg object-cover shadow-lg"
                         />

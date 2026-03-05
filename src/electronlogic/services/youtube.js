@@ -1,63 +1,119 @@
 /**
- * YouTube Service - Audio extraction and downloads via yt-dlp
+ * YouTube Service - Downloads using the engine's authenticated session
  */
-const { spawn } = require('child_process');
 const path = require('path');
-const fs = require('fs').promises;
-const { existsSync, mkdirSync, readdirSync } = require('fs');
-const { AUDIO_EXTENSIONS, getDefaultMusicPath, getYtdlpPath } = require('../config');
+const fs = require('fs');
+const { net } = require('electron');
+const { app } = require('electron');
+const audioEngine = require('./audioEngine');
 
-const DOWNLOADS_FOLDER = 'MusicLov Downloads';
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-const getDownloadsPath = () => {
-    const p = path.join(getDefaultMusicPath(), DOWNLOADS_FOLDER);
-    if (!existsSync(p)) mkdirSync(p, { recursive: true });
-    return p;
+/**
+ * Downloads a song by extracting the audio stream URL from the engine's
+ * authenticated session and streaming it via Electron's net module.
+ */
+const downloadSong = async (videoId, title, metadata = {}) => {
+    // Feature disabled for now
+    console.log(`[YouTube] Download requested for ${videoId} but feature is disabled.`);
+    return null;
 };
 
-const sanitize = (name) => name.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
+/**
+ * Use InnerTube player API to get an audio stream URL for downloading.
+ * This uses the engine's authenticated session cookies.
+ */
+async function getStreamUrlForDownload(videoId) {
+    try {
+        const ses = audioEngine.getSession();
+        const cookies = await ses.cookies.get({ url: 'https://www.youtube.com' });
+        const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
 
-// Get audio stream URL for a YouTube video
-const getAudioUrl = (videoId) => new Promise((resolve, reject) => {
-    const ytdlp = spawn(getYtdlpPath(), ['-g', '-f', 'bestaudio', '--no-playlist', `https://www.youtube.com/watch?v=${videoId}`]);
-    let audioUrl = '', error = '';
+        const response = await net.fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+                'Cookie': cookieStr,
+                'X-YouTube-Client-Name': '5',
+                'X-YouTube-Client-Version': '19.29.1',
+                'Referer': 'https://www.youtube.com/',
+                'Origin': 'https://www.youtube.com',
+            },
+            body: JSON.stringify({
+                context: {
+                    client: {
+                        clientName: 'IOS',
+                        clientVersion: '19.29.1',
+                        deviceModel: 'iPhone16,2',
+                        osName: 'iOS',
+                        osVersion: '17.5.1.21F90',
+                        hl: 'en',
+                        gl: 'US',
+                        utcOffsetMinutes: 0,
+                    },
+                },
+                videoId: videoId,
+                playbackContext: { contentPlaybackContext: { signatureTimestamp: Math.floor(Date.now() / 1000) - 86400 } }
+            }),
+            session: ses,
+        });
 
-    ytdlp.stdout.on('data', d => audioUrl += d.toString());
-    ytdlp.stderr.on('data', d => error += d.toString());
-    ytdlp.on('close', code => code !== 0 ? reject(new Error(error || 'yt-dlp failed')) : resolve(audioUrl.trim()));
-    ytdlp.on('error', reject);
-});
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[YouTube] Player API returned ${response.status}: ${errorText}`);
+            return null;
+        }
 
-// Download a song as audio file
-const downloadSong = (videoId, songInfo) => new Promise((resolve, reject) => {
-    const filename = sanitize(`${songInfo.artist} - ${songInfo.title}`);
-    const outputFile = path.join(getDownloadsPath(), `${filename}.%(ext)s`);
+        const data = await response.json();
+        const streamingData = data?.streamingData || {};
+        const formats = [
+            ...(streamingData.adaptiveFormats || []),
+            ...(streamingData.formats || [])
+        ];
 
-    const ytdlp = spawn(getYtdlpPath(), ['-f', 'bestaudio', '-o', outputFile, '--no-playlist', `https://www.youtube.com/watch?v=${videoId}`]);
-    let error = '';
+        // Filter for audio formats that have a direct URL (not a cipher)
+        const audioFormats = formats
+            .filter(f => f.mimeType?.startsWith('audio/') && f.url)
+            .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
-    ytdlp.stdout.on('data', d => console.log('[Download]', d.toString().trim()));
-    ytdlp.stderr.on('data', d => error += d.toString());
-    ytdlp.on('close', code => {
-        if (code !== 0) return reject(new Error(error || 'Download failed'));
-        const file = readdirSync(getDownloadsPath()).find(f => f.startsWith(filename) && AUDIO_EXTENSIONS.some(ext => f.endsWith(ext)));
-        if (!file) return reject(new Error('File not found'));
-        resolve({ filePath: path.join(getDownloadsPath(), file), fileName: file });
-    });
-    ytdlp.on('error', reject);
-});
+        if (audioFormats.length > 0) {
+            return audioFormats[0].url;
+        }
+
+        // Final fallback: any format with a direct URL
+        const fallbackFormat = formats.find(f => f.url);
+        return fallbackFormat ? fallbackFormat.url : null;
+    } catch (e) {
+        console.error('[YouTube] Stream URL extraction error:', e.message);
+        return null;
+    }
+}
 
 // Check if song already downloaded
 const isAlreadyDownloaded = (videoId, songInfo) => {
+    const sanitize = (name) => name.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    const downloadsPath = path.join(app.getPath('music'), 'MusicLov');
     const filename = sanitize(`${songInfo.artist} - ${songInfo.title}`);
-    const found = existsSync(getDownloadsPath()) && readdirSync(getDownloadsPath()).find(f => f.startsWith(filename) && AUDIO_EXTENSIONS.some(ext => f.endsWith(ext)));
-    return found ? path.join(getDownloadsPath(), found) : null;
+
+    if (fs.existsSync(downloadsPath)) {
+        const found = fs.readdirSync(downloadsPath).find(f => f.startsWith(filename) && f.endsWith('.m4a'));
+        return found ? path.join(downloadsPath, found) : null;
+    }
+    return null;
 };
 
 // Delete downloaded file
 const deleteDownload = async (filePath) => {
-    if (existsSync(filePath)) { await fs.unlink(filePath); return true; }
+    if (fs.existsSync(filePath)) {
+        await fs.promises.unlink(filePath);
+        return true;
+    }
     return false;
 };
 
-module.exports = { getAudioUrl, downloadSong, isAlreadyDownloaded, deleteDownload };
+module.exports = {
+    downloadSong,
+    isAlreadyDownloaded,
+    deleteDownload,
+};

@@ -1,8 +1,16 @@
 /**
- * InnerTube API Service
- * Handles YouTube Music search and browse functionality
+ * Utility to upgrade thumbnail resolution
  */
-
+function upgradeThumbnailUrl(url) {
+    if (!url) return url;
+    if (url.includes('googleusercontent.com') || url.includes('ggpht.com')) {
+        return url.replace(/(=w\d+-h\d+|=s\d+).*/, '=s400');
+    }
+    if (url.includes('ytimg.com')) {
+        return url.replace(/\/(default|hqdefault|mqdefault|sddefault|hq720)\.jpg/, '/hqdefault.jpg');
+    }
+    return url;
+}
 const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 const BASE_URL = 'https://music.youtube.com';
 
@@ -63,7 +71,11 @@ function parseSongsFromSearch(data, limit = 20) {
 
                 const title = renderer.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
                 const artist = renderer.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
-                const thumbnails = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails;
+                const thumbnails = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+
+                // Get the best thumbnail and upgrade its resolution
+                const originalUrl = thumbnails?.[thumbnails?.length - 1]?.url;
+                const highResUrl = upgradeThumbnailUrl(originalUrl);
 
                 songs.push({
                     videoId,
@@ -71,8 +83,8 @@ function parseSongsFromSearch(data, limit = 20) {
                     artist,
                     authors: [{ name: artist }],
                     thumbnail: {
-                        thumbnails: thumbnails || [],
-                        url: thumbnails?.[thumbnails?.length - 1]?.url,
+                        thumbnails: thumbnails,
+                        url: highResUrl,
                     },
                 });
             }
@@ -134,6 +146,7 @@ module.exports = {
     browse,
     innertubeRequest,
     parseSongsFromSearch,
+    upgradeThumbnailUrl,
     INNERTUBE_API_KEY,
     SearchFilter,
     WEB_REMIX_CLIENT,

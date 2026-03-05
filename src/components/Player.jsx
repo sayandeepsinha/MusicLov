@@ -2,13 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { AnimatePresence } from 'framer-motion';
 import { MaximizedPlayer, MinimizedPlayer } from './PlayerUI';
+import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
 
 export default function Player() {
-    const { currentSong, isPlaying, setIsPlaying, togglePlay, playNext, playPrevious, audioUrl, isLoadingAudio, queue, currentIndex, playQueueTrack, downloadSong, isDownloaded } = usePlayer();
+    const {
+        currentSong, isPlaying, setIsPlaying, togglePlay, playNext, playPrevious,
+        audioUrl, isLoadingAudio, queue, currentIndex, playQueueTrack,
+        downloadSong, isDownloaded,
+        playbackMode, engineProgress, engineDuration,
+        engineSeek, engineSetVolume, engineSetMuted,
+    } = usePlayer();
 
     const audioRef = useRef(null);
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
+    const [localProgress, setLocalProgress] = useState(0);
+    const [localDuration, setLocalDuration] = useState(0);
     const [isMuted, setIsMuted] = useState(false);
     const [isRepeat, setIsRepeat] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
@@ -16,14 +23,29 @@ export default function Player() {
     const [isSeeking, setIsSeeking] = useState(false);
     const isProgrammaticRef = useRef(false);
 
-    // Audio URL change handler
+    // Derived: which progress/duration to show
+    const progress = playbackMode === 'engine' ? engineProgress : localProgress;
+    const duration = playbackMode === 'engine' ? engineDuration : localDuration;
+
+    // === LOCAL AUDIO ELEMENT EFFECTS (only active for local files) ===
+
+    // Load local audio when audioUrl changes
     useEffect(() => {
         if (!audioRef.current) return;
+
+        // If we are NOT in local mode, ENSURE the audio element is stopped and cleared
+        if (playbackMode !== 'local') {
+            audioRef.current.pause();
+            audioRef.current.src = '';
+            audioRef.current.load();
+            return;
+        }
+
         isProgrammaticRef.current = true;
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
-        setProgress(0);
-        setDuration(0);
+        setLocalProgress(0);
+        setLocalDuration(0);
 
         if (audioUrl) {
             audioRef.current.src = audioUrl;
@@ -31,50 +53,101 @@ export default function Player() {
             audioRef.current.play().then(() => setIsPlaying(true)).catch(console.error);
         }
         setTimeout(() => { isProgrammaticRef.current = false; }, 200);
-    }, [audioUrl, setIsPlaying]);
+    }, [audioUrl, setIsPlaying, playbackMode]);
 
-    // Sync play/pause state
+    // Sync play/pause for local mode
     useEffect(() => {
-        if (!audioRef.current || !audioUrl) return;
+        if (!audioRef.current || !audioUrl || playbackMode === 'engine') return;
         isProgrammaticRef.current = true;
         isPlaying ? audioRef.current.play().catch(() => { }) : audioRef.current.pause();
         setTimeout(() => { isProgrammaticRef.current = false; }, 100);
-    }, [isPlaying, audioUrl]);
+    }, [isPlaying, audioUrl, playbackMode]);
 
-    // MediaSession API for OS media keys
+    // === MEDIA SESSION (works for both modes) ===
+
     useEffect(() => {
         if (!('mediaSession' in navigator)) return;
         const handlers = {
-            play: () => { audioRef.current?.play().catch(() => { }); setIsPlaying(true); },
-            pause: () => { audioRef.current?.pause(); setIsPlaying(false); },
+            play: () => { if (playbackMode === 'local') { audioRef.current?.play().catch(() => { }); } togglePlay(); },
+            pause: () => { if (playbackMode === 'local') { audioRef.current?.pause(); } togglePlay(); },
             previoustrack: playPrevious,
             nexttrack: playNext,
-            seekbackward: () => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10); },
-            seekforward: () => { if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 10); },
+            seekbackward: () => {
+                const newTime = Math.max(0, progress - 10);
+                if (playbackMode === 'engine') { engineSeek(newTime); } else if (audioRef.current) { audioRef.current.currentTime = newTime; }
+            },
+            seekforward: () => {
+                const newTime = Math.min(duration, progress + 10);
+                if (playbackMode === 'engine') { engineSeek(newTime); } else if (audioRef.current) { audioRef.current.currentTime = newTime; }
+            },
         };
         Object.entries(handlers).forEach(([action, handler]) => navigator.mediaSession.setActionHandler(action, handler));
         return () => Object.keys(handlers).forEach(action => navigator.mediaSession.setActionHandler(action, null));
-    }, [audioUrl, playNext, playPrevious, setIsPlaying]);
+    }, [playbackMode, progress, duration, playNext, playPrevious, togglePlay, engineSeek]);
 
     // Update MediaSession metadata
     useEffect(() => {
         if (!('mediaSession' in navigator) || !currentSong) return;
         const thumb = currentSong.thumbnail?.url || currentSong.thumbnail?.thumbnails?.[0]?.url;
         navigator.mediaSession.metadata = new MediaMetadata({
-            title: currentSong.title || 'Unknown', artist: currentSong.artist || currentSong.authors?.map(a => a.name).join(', ') || 'Unknown', album: currentSong.album || 'MusicLov',
+            title: currentSong.title || 'Unknown',
+            artist: currentSong.artist || currentSong.authors?.map(a => a.name).join(', ') || 'Unknown',
+            album: currentSong.album || 'MusicLov',
             artwork: thumb ? [{ src: thumb, sizes: '512x512', type: 'image/jpeg' }] : []
         });
     }, [currentSong]);
 
-    const handleTimeUpdate = () => !isSeeking && audioRef.current && (setProgress(audioRef.current.currentTime), setDuration(audioRef.current.duration || 0));
-    const handleSeek = (e) => { const t = parseFloat(e.target.value); setProgress(t); if (audioRef.current) audioRef.current.currentTime = t; };
-    const handleEnded = () => isRepeat && audioRef.current ? (audioRef.current.currentTime = 0, audioRef.current.play().catch(() => { })) : playNext();
-    const handleDownload = async () => { if (!currentSong || isDownloading) return; setIsDownloading(true); await downloadSong(currentSong); setIsDownloading(false); };
-    const toggleMute = () => { if (audioRef.current) { audioRef.current.muted = !isMuted; setIsMuted(!isMuted); } };
+    // === EVENT HANDLERS ===
+
+    const handleTimeUpdate = () => {
+        if (!isSeeking && audioRef.current && playbackMode === 'local') {
+            setLocalProgress(audioRef.current.currentTime);
+            setLocalDuration(audioRef.current.duration || 0);
+        }
+    };
+
+    const handleSeek = (e) => {
+        const t = parseFloat(e.target.value);
+        if (playbackMode === 'engine') {
+            engineSeek(t);
+        } else if (audioRef.current) {
+            setLocalProgress(t);
+            audioRef.current.currentTime = t;
+        }
+    };
+
+    const handleEnded = () => {
+        // Only for local playback — engine fires its own ended event
+        if (playbackMode === 'local') {
+            if (isRepeat && audioRef.current) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().catch(() => { });
+            } else {
+                playNext();
+            }
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!currentSong || isDownloading) return;
+        setIsDownloading(true);
+        await downloadSong(currentSong);
+        setIsDownloading(false);
+    };
+
+    const toggleMute = () => {
+        const newMuted = !isMuted;
+        setIsMuted(newMuted);
+        if (playbackMode === 'engine') {
+            engineSetMuted(newMuted);
+        } else if (audioRef.current) {
+            audioRef.current.muted = newMuted;
+        }
+    };
 
     if (!currentSong) return null;
 
-    const thumbnailUrl = currentSong.thumbnail?.url || currentSong.thumbnail?.thumbnails?.[0]?.url;
+    const thumbnailUrl = currentSong.thumbnail?.url ? upgradeThumbnailUrl(currentSong.thumbnail.url) : upgradeThumbnailUrl(currentSong.thumbnail?.thumbnails?.[0]?.url);
     const songIsDownloaded = currentSong.videoId && isDownloaded(currentSong.videoId);
 
     const commonProps = {
@@ -85,8 +158,10 @@ export default function Player() {
 
     return (
         <>
-            <audio ref={audioRef} preload="auto" onTimeUpdate={handleTimeUpdate} onLoadedMetadata={(e) => setDuration(e.target.duration)} onEnded={handleEnded}
-                onPlay={() => !isProgrammaticRef.current && setIsPlaying(true)} onPause={() => !isProgrammaticRef.current && setIsPlaying(false)} className="hidden" />
+            {/* Audio element — only used for local file playback */}
+            <audio ref={audioRef} preload="auto" onTimeUpdate={handleTimeUpdate} onLoadedMetadata={(e) => setLocalDuration(e.target.duration)} onEnded={handleEnded}
+                onPlay={() => !isProgrammaticRef.current && playbackMode === 'local' && setIsPlaying(true)}
+                onPause={() => !isProgrammaticRef.current && playbackMode === 'local' && setIsPlaying(false)} className="hidden" />
             <AnimatePresence mode="wait">
                 {isMaximized ? (
                     <MaximizedPlayer {...commonProps} queue={queue} onMinimize={() => setIsMaximized(false)} onPlayQueueTrack={playQueueTrack} />
