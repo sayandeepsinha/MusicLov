@@ -1,6 +1,6 @@
 {
   "name": "musiclov",
-  "version": "1.8.5",
+  "version": "26.0.1",
   "author": {
     "name": "Sayandeep Sinha",
     "email": "sayandeep.sinha@example.com"
@@ -30,8 +30,7 @@
     "win": {
       "icon": "public/icon.png",
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ]
     },
     "linux": {
