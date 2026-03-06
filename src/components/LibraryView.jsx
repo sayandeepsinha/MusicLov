@@ -140,7 +140,7 @@ function SongRow({ song, onPlay, onRemove, thumbnail, showFormat }) {
             <div onClick={onPlay} className="flex-1 flex items-center gap-3 cursor-pointer min-w-0">
                 {thumbnail ? (
                     <img
-                        src={upgradeThumbnailUrl(thumbnail)}
+                        src={upgradeThumbnailUrl(thumbnail, song.videoId || song.id)}
                         onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = thumbnail;

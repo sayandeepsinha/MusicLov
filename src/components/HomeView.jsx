@@ -16,15 +16,19 @@ export default function HomeView({ searchResults, setSearchResults }) {
         const fetchHomeSongs = async () => {
             if (!window.electronAPI) return;
             try {
-                // Use the new recommender engine with a universally popular seed song (e.g. Blinding Lights - The Weeknd)
-                // This will guarantee 50 high-quality global hits instead of a janky 20-item search text scrape
-                const songs = await window.electronAPI.getRecommendations('4NRXx6U8ABQ', 50);
+                // Read recent user listening history from IndexedDB
+                const db = await import('../common/db');
+                const historyIds = await db.getRecentHistoryVideoIds(10);
+
+                // Fetch dynamic, personalized 50-song mix based on those history seeds
+                const songs = await window.electronAPI.getPersonalizedMix(historyIds, 50);
+
                 if (isMounted) {
                     setHomeSongs(songs || []);
                     setLoadingHome(false);
                 }
             } catch (err) {
-                logger.error('HomeView', 'Failed to fetch home songs', err);
+                logger.error('HomeView', 'Failed to fetch personalized home songs', err);
                 if (isMounted) setLoadingHome(false);
             }
         };

@@ -1,11 +1,5 @@
 const logger = require('./logger');
 
-/**
- * Utility to upgrade thumbnail resolution
- */
-function upgradeThumbnailUrl(url) {
-    return null;
-}
 const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 const BASE_URL = 'https://music.youtube.com';
 
@@ -68,9 +62,8 @@ function parseSongsFromSearch(data, limit = 20) {
                 const artist = renderer.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text;
                 const thumbnails = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
 
-                // Get the best thumbnail and upgrade its resolution
+                // Get the best thumbnail and keep its original resolution for the frontend to upgrade
                 const originalUrl = thumbnails?.[thumbnails?.length - 1]?.url;
-                const highResUrl = upgradeThumbnailUrl(originalUrl);
 
                 songs.push({
                     videoId,
@@ -79,7 +72,7 @@ function parseSongsFromSearch(data, limit = 20) {
                     authors: [{ name: artist }],
                     thumbnail: {
                         thumbnails: thumbnails,
-                        url: highResUrl,
+                        url: originalUrl,
                     },
                 });
             }
@@ -141,7 +134,6 @@ module.exports = {
     browse,
     innertubeRequest,
     parseSongsFromSearch,
-    upgradeThumbnailUrl,
     INNERTUBE_API_KEY,
     SearchFilter,
     WEB_REMIX_CLIENT,

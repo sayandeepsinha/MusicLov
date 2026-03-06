@@ -1,11 +1,17 @@
 import { Play, Music } from 'lucide-react';
+import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
 
 export default function SongCard({ song, onClick }) {
+    const thumbUrl = upgradeThumbnailUrl(
+        song.thumbnail?.url || song.thumbnail?.thumbnails?.[0]?.url,
+        song.videoId || song.id
+    );
+
     return (
         <div onClick={onClick} className="flex flex-col gap-2 p-3 bg-white border border-blue-50 rounded-xl shadow-sm hover:shadow-md hover:border-blue-200 transition cursor-pointer">
-            <div className="relative aspect-square w-full rounded-lg bg-blue-50 flex items-center justify-center overflow-hidden">
-                {song.thumbnail ? (
-                    <img src={song.thumbnail.url || (song.thumbnail.thumbnails && song.thumbnail.thumbnails[0]?.url)} alt={song.title} className="w-full h-full object-cover" />
+            <div className="relative aspect-[5/3] w-full rounded-lg bg-blue-50 flex flex-col items-center justify-center overflow-hidden">
+                {thumbUrl ? (
+                    <img src={thumbUrl} alt={song.title} className="w-full h-full object-cover" />
                 ) : (
                     <Music className="w-8 h-8 text-blue-300" />
                 )}

@@ -84,6 +84,11 @@ export function PlayerProvider({ children }) {
         setIsPlaying(false);
         endedHandledRef.current = false;
 
+        // Log to history asynchronously (failsafed)
+        import('../common/db').then(({ addToHistory }) => {
+            addToHistory(song).catch(e => logger.error('PlayerContext', 'Failed to save history', e));
+        });
+
         // 1. Local file
         if (song.isLocal && song.filePath) {
             const url = await window.electronAPI?.getLocalFileUrl(song.filePath);

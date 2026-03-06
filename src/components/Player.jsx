@@ -106,8 +106,8 @@ export default function Player() {
     if (!currentSong) return null;
 
     const thumbnailUrl = currentSong.thumbnail?.url
-        ? upgradeThumbnailUrl(currentSong.thumbnail.url)
-        : upgradeThumbnailUrl(currentSong.thumbnail?.thumbnails?.[0]?.url);
+        ? upgradeThumbnailUrl(currentSong.thumbnail.url, currentSong.videoId || currentSong.id)
+        : upgradeThumbnailUrl(currentSong.thumbnail?.thumbnails?.[0]?.url, currentSong.videoId || currentSong.id);
 
     const commonProps = {
         song: currentSong, thumbnailUrl, isPlaying, isLoadingAudio, progress, duration,

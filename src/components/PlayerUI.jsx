@@ -35,10 +35,15 @@ function Thumbnail({ url, sizeClass = "w-12 h-12", iconSizeClass = "w-6 h-6" }) 
 }
 
 function QueueItem({ song, index, isActive, onPlay }) {
+    const thumbUrl = upgradeThumbnailUrl(
+        song.thumbnail?.url || song.thumbnail?.thumbnails?.[0]?.url,
+        song.videoId || song.id
+    );
+
     return (
         <div onClick={onPlay} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition ${isActive ? 'bg-blue-50 text-blue-900' : 'hover:bg-gray-50'}`}>
             <span className={`text-xs w-5 text-center font-medium ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>{index + 1}</span>
-            <Thumbnail url={song.thumbnail?.url} sizeClass="w-10 h-10" iconSizeClass="w-5 h-5" />
+            <Thumbnail url={thumbUrl} sizeClass="w-16 aspect-[5/3] shrink-0" iconSizeClass="w-5 h-5" />
             <div className="min-w-0 flex-1">
                 <p className={`text-sm truncate font-medium ${isActive ? 'text-blue-800' : 'text-gray-800'}`}>{song.title}</p>
                 <p className="text-xs truncate text-gray-500">{song.artist}</p>
@@ -56,8 +61,8 @@ export function MaximizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio,
                         <Minimize2 className="w-6 h-6" />
                     </button>
 
-                    <div className="mb-6 shadow-xl rounded-2xl overflow-hidden ring-4 ring-blue-50">
-                        <Thumbnail url={thumbnailUrl} sizeClass="w-64 h-64 md:w-80 md:h-80" iconSizeClass="w-32 h-32" />
+                    <div className="mb-6 shadow-xl rounded-2xl overflow-hidden ring-4 ring-blue-50 flex-shrink-0">
+                        <Thumbnail url={thumbnailUrl} sizeClass="w-[320px] aspect-[5/3] md:w-[480px]" iconSizeClass="w-20 h-20" />
                     </div>
 
                     <h2 className="text-2xl font-bold text-gray-800 text-center mb-1 max-w-lg line-clamp-2">{song.title}</h2>
@@ -103,7 +108,7 @@ export function MinimizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio,
             <div className="max-w-5xl mx-auto rounded-2xl bg-white border border-blue-100 shadow-xl pointer-events-auto overflow-hidden flex flex-col p-3 px-4 transition-all">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Thumbnail url={thumbnailUrl} sizeClass="w-12 h-12" />
+                        <Thumbnail url={thumbnailUrl} sizeClass="w-16 aspect-[5/3] shrink-0" />
                         <div className="min-w-0 flex flex-col justify-center">
                             <h3 className="font-semibold text-gray-800 truncate text-sm leading-tight mb-0.5">{song.title}</h3>
                             <p className="text-xs text-gray-500 truncate leading-tight">{song.artist || song.authors?.map(a => a.name).join(', ')}</p>

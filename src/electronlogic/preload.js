@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     search: (query) => ipcRenderer.invoke('search', query),
     browse: (category) => ipcRenderer.invoke('browse', category),
     getRecommendations: (videoId, limit) => ipcRenderer.invoke('get-recommendations', { videoId, limit }),
+    getPersonalizedMix: (historyIds, limit) => ipcRenderer.invoke('get-personalized-mix', { historyIds, limit }),
 
     // Audio Engine controls (YouTube playback via hidden Chromium window)
     enginePlay: (videoId) => ipcRenderer.invoke('engine:play', videoId),

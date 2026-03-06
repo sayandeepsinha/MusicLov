@@ -4,10 +4,11 @@
  */
 
 const DB_NAME = 'musiclov_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // Bump version to create history store
 const DOWNLOADS_STORE = 'downloads';
 const LOCAL_LIBRARY_STORE = 'localLibrary';
 const SETTINGS_STORE = 'settings';
+const HISTORY_STORE = 'history';
 
 /**
  * Open the IndexedDB database
@@ -28,6 +29,10 @@ export function openDB() {
             }
             if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
                 db.createObjectStore(SETTINGS_STORE, { keyPath: 'key' });
+            }
+            if (!db.objectStoreNames.contains(HISTORY_STORE)) {
+                const historyStore = db.createObjectStore(HISTORY_STORE, { keyPath: 'timestamp' });
+                historyStore.createIndex('videoId', 'videoId', { unique: false });
             }
         };
     });
@@ -160,5 +165,62 @@ export async function deleteLocalSong(songId) {
         const request = store.delete(songId);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => resolve();
+    });
+}
+
+/**
+ * Add a song to the listening history
+ */
+export async function addToHistory(song) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(HISTORY_STORE, 'readwrite');
+        const store = tx.objectStore(HISTORY_STORE);
+        // Save minimal song info with current timestamp
+        const entry = {
+            timestamp: Date.now(),
+            videoId: song.videoId,
+            title: song.title,
+            artist: song.artist,
+            thumbnail: song.thumbnail,
+            isLocal: song.isLocal || false,
+        };
+        const request = store.put(entry);
+
+        // Optional: trim history if it gets too large (> 500 items)
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+/**
+ * Get the N most recently played songs
+ * Returns only unique videoIds from recent history to seed recommendations
+ */
+export async function getRecentHistoryVideoIds(limit = 10) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(HISTORY_STORE, 'readonly');
+        const store = tx.objectStore(HISTORY_STORE);
+
+        // Open a cursor going backwards (prev) through timestamps (newest first)
+        const request = store.openCursor(null, 'prev');
+
+        const recentUniqueIds = new Set();
+
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor && recentUniqueIds.size < limit) {
+                // Only consider YouTube streams, not local offline files for seeding
+                if (!cursor.value.isLocal && cursor.value.videoId) {
+                    recentUniqueIds.add(cursor.value.videoId);
+                }
+                cursor.continue();
+            } else {
+                resolve(Array.from(recentUniqueIds));
+            }
+        };
+
+        request.onerror = () => reject(request.error);
     });
 }
