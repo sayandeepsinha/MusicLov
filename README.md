@@ -9,13 +9,13 @@ A beautiful, ad-free music streaming desktop app built with Electron and React.
 
 ## Features
 
-- 🎶 **Stream music** from YouTube Music (Native Engine)
-- 🔍 **Search** for songs and artists
-- 📚 **Browse** trending categories (Hindi, English, Global, etc.)
-- 💾 **Offline playback** - Download songs for offline listening
-- 🎨 **Beautiful UI** with dark mode and smooth animations
-- �️ **High-Res Thumbnails** - Sharp artwork for every track
-- �🚫 **No ads** - Built-in native ad-blocking
+- **Stream music** from YouTube Music (Native Engine)
+- **Search** for songs and artists
+- **Browse** trending categories (Hindi, English, Global, etc.)
+- **Offline playback** - Download songs for offline listening
+- **Beautiful UI** with dark mode and smooth animations
+- **High-Res Thumbnails** - Sharp artwork for every track
+- **No ads** - Built-in native ad-blocking
 
 ## Tech Stack
 
@@ -52,13 +52,13 @@ npm run package
 
 Since this app is not signed with expensive Apple/Microsoft developer certificates, your OS will show a warning:
 
-### 🍏 macOS ("App is damaged" or "Unidentified Developer")
+### macOS ("App is damaged" or "Unidentified Developer")
 1. Drag the app to your **Applications** folder.
 2. **Right-click** (or Control-click) the app icon and select **Open**.
 3. A dialog will appear; click **Open** again. 
 4. *Alternatively:* Run `sudo xattr -rd com.apple.quarantine /Applications/MusicLov.app` in your terminal.
 
-### 🪟 Windows ("Windows protected your PC")
+### Windows ("Windows protected your PC")
 1. Click **More info**.
 2. Click **Run anyway**.
 
