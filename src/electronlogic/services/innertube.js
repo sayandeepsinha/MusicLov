@@ -1,6 +1,6 @@
 const logger = require('./logger');
+const { INNERTUBE_API_KEY } = require('../config');
 
-const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 const BASE_URL = 'https://music.youtube.com';
 
 const SearchFilter = {

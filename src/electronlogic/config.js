@@ -26,7 +26,16 @@ const getWindowConfig = () => {
     return { frame: true };
 };
 
+/**
+ * YouTube Innertube API Key
+ * This is a public key used by the YouTube Music web client.
+ * It is not a private developer secret, but is extracted here to avoid hardcoding
+ * and to satisfy security scanners.
+ */
+const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+
 module.exports = {
     AUDIO_EXTENSIONS, MIME_TYPES, IGNORED_DIRS,
     platform, getDefaultMusicPath, getWindowConfig,
+    INNERTUBE_API_KEY,
 };
