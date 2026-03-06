@@ -1,6 +1,10 @@
 {
   "name": "musiclov",
   "version": "1.8.5",
+  "author": {
+    "name": "Sayandeep Sinha",
+    "email": "sayandeep.sinha@example.com"
+  },
   "description": "MusicLov - Stream your favorite tracks, ad-free",
   "main": "src/electronlogic/main.js",
   "scripts": {
