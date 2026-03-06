@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     engineSetVolume: (volume) => ipcRenderer.invoke('engine:set-volume', volume),
     engineSetMuted: (muted) => ipcRenderer.invoke('engine:set-muted', muted),
     engineStop: () => ipcRenderer.invoke('engine:stop'),
+    engineGetState: () => ipcRenderer.invoke('engine:get-state'),
 
     // Engine event listeners (receive state from hidden window)
     onEngineEvent: (callback) => {

@@ -1,3 +1,5 @@
+const logger = require('./logger');
+
 /**
  * Utility to upgrade thumbnail resolution
  */
@@ -100,7 +102,7 @@ function parseSongsFromSearch(data, limit = 20) {
  * @returns {Promise<Array>} - Array of song objects
  */
 async function search(query) {
-    console.log('[InnerTube] Searching for:', query);
+    logger.info('InnerTube', `Searching for: ${query}`);
     try {
         const body = {
             context: { client: WEB_REMIX_CLIENT },
@@ -109,10 +111,10 @@ async function search(query) {
         };
         const data = await innertubeRequest('/youtubei/v1/search', body);
         const songs = parseSongsFromSearch(data);
-        console.log('[InnerTube] Found', songs.length, 'songs');
+        logger.info('InnerTube', `Found ${songs.length} songs`);
         return songs;
     } catch (error) {
-        console.error('[InnerTube] Search failed:', error);
+        logger.error('InnerTube', 'Search failed:', error);
         return [];
     }
 }
@@ -124,7 +126,7 @@ async function search(query) {
  * @returns {Promise<Array>} - Array of song objects
  */
 async function browse(query, limit = 30) {
-    console.log('[InnerTube] Browsing:', query, 'limit:', limit);
+    logger.info('InnerTube', `Browsing: ${query} limit: ${limit}`);
     try {
         const body = {
             context: { client: WEB_REMIX_CLIENT },
@@ -133,10 +135,10 @@ async function browse(query, limit = 30) {
         };
         const data = await innertubeRequest('/youtubei/v1/search', body);
         const songs = parseSongsFromSearch(data, limit);
-        console.log('[InnerTube] Found', songs.length, 'songs for', query);
+        logger.info('InnerTube', `Found ${songs.length} songs for ${query}`);
         return songs;
     } catch (error) {
-        console.error('[InnerTube] Browse failed:', error);
+        logger.error('InnerTube', 'Browse failed:', error);
         return [];
     }
 }

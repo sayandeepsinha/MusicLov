@@ -1,4 +1,5 @@
-import { getAllLocalSongs, saveLocalSongs, clearLocalLibrary, getSetting, saveSetting, saveDownload, removeDownload, getAllDownloads } from './db';
+import { getAllLocalSongs, saveLocalSongs, clearLocalLibrary, getSetting, saveSetting, removeDownload, getAllDownloads } from './db';
+import logger from './logger';
 
 const mergeWithExisting = (existing, newSongs) => {
     const paths = new Set(existing.map(s => s.filePath));
@@ -70,7 +71,7 @@ export async function deleteDownloadedSong(videoId, downloads = []) {
         await removeDownload(videoId);
         return { success: true };
     } catch (e) {
-        console.error('[MediaService]', e);
+        logger.error('MediaService', 'deleteDownloadedSong failed', e);
         return { success: false, error: e };
     }
 }

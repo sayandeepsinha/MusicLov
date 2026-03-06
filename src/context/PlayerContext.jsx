@@ -1,6 +1,16 @@
+/**
+ * PlayerContext — Unified player state
+ *
+ * Architecture contract:
+ *  - UI (this file) owns `isPlaying` entirely.
+ *  - The engine's `engine:timeupdate` sends progress ONLY — never touches isPlaying.
+ *  - isPlaying is set from: togglePlay(), engine:ready, engine:loading, engine:ended.
+ *  - On mount, we sync from the engine via engineGetState() to handle HMR reloads.
+ */
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { deleteLocalSong } from '../common/db';
 import * as mediaService from '../common/mediaService';
+import logger from '../common/logger';
 
 const PlayerContext = createContext();
 
@@ -11,85 +21,93 @@ export function PlayerProvider({ children }) {
     const [currentIndex, setCurrentIndex] = useState(-1);
     const [isLoadingAudio, setIsLoadingAudio] = useState(false);
     const [downloads, setDownloads] = useState([]);
-
-    // Playback mode: 'engine' (YouTube via hidden window) or 'local' (HTML5 <audio>)
-    const [playbackMode, setPlaybackMode] = useState(null);
-    // Audio URL only used for local file playback
+    const [playbackMode, setPlaybackMode] = useState(null); // 'engine' | 'local'
     const [audioUrl, setAudioUrl] = useState(null);
-
-    // Engine state (received from hidden BrowserWindow polling)
     const [engineProgress, setEngineProgress] = useState(0);
     const [engineDuration, setEngineDuration] = useState(0);
-
     const [localLibrary, setLocalLibrary] = useState([]);
     const [importedFolders, setImportedFolders] = useState([]);
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(null);
 
-    const scanInitiatedRef = useRef(false);
-
-    // Use refs for values that engine event handlers need to access without stale closures
+    // Refs so IPC callbacks (registered once) can always read latest values
     const queueRef = useRef([]);
     const currentIndexRef = useRef(-1);
     const downloadsRef = useRef([]);
+    const scanInitiatedRef = useRef(false);
 
-    // Keep refs in sync with state
+    // Guard: prevent engine:ended from firing twice for the same song
+    const endedHandledRef = useRef(false);
+
     useEffect(() => { queueRef.current = queue; }, [queue]);
     useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
     useEffect(() => { downloadsRef.current = downloads; }, [downloads]);
 
-    // Load downloads and library data on mount
+    // ─── Initialisation ───────────────────────────────────────────────────────
+
     useEffect(() => {
-        mediaService.getAllDownloads().then(setDownloads).catch(console.error);
-        mediaService.loadLibraryData().then(({ localLibrary: lib, importedFolders: folders }) => {
+        mediaService.getAllDownloads().then(setDownloads)
+            .catch(e => logger.error('PlayerContext', 'load downloads', e));
+        mediaService.loadLibraryData().then(({ localLibrary: lib, importedFolders: f }) => {
             setLocalLibrary(lib);
-            setImportedFolders(folders);
-        }).catch(console.error);
+            setImportedFolders(f);
+        }).catch(e => logger.error('PlayerContext', 'load library', e));
     }, []);
 
-    // Auto-scan on mount
+    // Auto-scan once on mount
     useEffect(() => {
         if (scanInitiatedRef.current || !window.electronAPI) return;
         scanInitiatedRef.current = true;
         scanDefaultMusicFolder().catch(() => { scanInitiatedRef.current = false; });
     }, []);
 
-    /**
-     * Core playback function — determines engine vs local mode
-     */
+    // Sync with engine on mount — handles HMR reloads where engine keeps running
+    useEffect(() => {
+        if (!window.electronAPI?.engineGetState) return;
+        window.electronAPI.engineGetState().then(state => {
+            if (!state || !state.videoId) return;
+            // Engine is mid-playback but UI just (re)mounted — re-attach
+            setEngineProgress(state.currentTime || 0);
+            setEngineDuration(state.duration || 0);
+            setIsPlaying(state.isPlaying || false);
+            setIsLoadingAudio(false);
+            setPlaybackMode('engine');
+        }).catch(() => { });
+    }, []);
+
+    // ─── Core playback ────────────────────────────────────────────────────────
+
     const startPlayback = useCallback(async (song) => {
         setIsLoadingAudio(true);
         setAudioUrl(null);
         setEngineProgress(0);
         setEngineDuration(0);
+        setIsPlaying(false);
+        endedHandledRef.current = false;
 
-        // Try local file first
+        // 1. Local file
         if (song.isLocal && song.filePath) {
-            const localUrl = await window.electronAPI?.getLocalFileUrl(song.filePath);
-            if (localUrl) {
-                // STOP ENGINE FIRST
-                if (window.electronAPI?.engineStop) await window.electronAPI.engineStop();
-
+            const url = await window.electronAPI?.getLocalFileUrl(song.filePath);
+            if (url) {
+                await window.electronAPI?.engineStop?.();
                 setPlaybackMode('local');
-                setAudioUrl(localUrl);
+                setAudioUrl(url);
                 setIsLoadingAudio(false);
                 setIsPlaying(true);
                 return;
             }
         }
 
-        // Try downloaded version
+        // 2. Downloaded version
         const videoId = song.videoId || song.id;
         if (videoId) {
-            const downloaded = downloadsRef.current.find(d => d.videoId === videoId);
-            if (downloaded?.filePath) {
-                const localUrl = await window.electronAPI?.getLocalFileUrl(downloaded.filePath);
-                if (localUrl) {
-                    // STOP ENGINE FIRST
-                    if (window.electronAPI?.engineStop) await window.electronAPI.engineStop();
-
+            const dl = downloadsRef.current.find(d => d.videoId === videoId);
+            if (dl?.filePath) {
+                const url = await window.electronAPI?.getLocalFileUrl(dl.filePath);
+                if (url) {
+                    await window.electronAPI?.engineStop?.();
                     setPlaybackMode('local');
-                    setAudioUrl(localUrl);
+                    setAudioUrl(url);
                     setIsLoadingAudio(false);
                     setIsPlaying(true);
                     return;
@@ -97,22 +115,21 @@ export function PlayerProvider({ children }) {
             }
         }
 
-        // YouTube song — use the engine
+        // 3. YouTube engine
         if (videoId && window.electronAPI?.enginePlay) {
             setPlaybackMode('engine');
-            setAudioUrl(null);
             await window.electronAPI.enginePlay(videoId);
-            // engine:ready event will set isLoadingAudio = false and isPlaying = true
+            // engine:ready will set isLoadingAudio=false and isPlaying=true
         } else {
             setIsLoadingAudio(false);
         }
     }, []);
 
-    // Use a ref for startPlayback so event handlers always have the latest version
     const startPlaybackRef = useRef(startPlayback);
     useEffect(() => { startPlaybackRef.current = startPlayback; }, [startPlayback]);
 
-    // Subscribe to engine events from the hidden BrowserWindow
+    // ─── Engine event listener ────────────────────────────────────────────────
+
     useEffect(() => {
         if (!window.electronAPI?.onEngineEvent) return;
 
@@ -120,35 +137,32 @@ export function PlayerProvider({ children }) {
             switch (channel) {
                 case 'engine:loading':
                     setIsLoadingAudio(true);
+                    setIsPlaying(false);
                     break;
 
                 case 'engine:ready':
+                    // Song is loaded and playing natively
                     setIsLoadingAudio(false);
                     setEngineDuration(data.duration || 0);
                     setIsPlaying(true);
                     break;
 
                 case 'engine:timeupdate':
+                    // Progress only — never touches isPlaying
                     setEngineProgress(data.currentTime || 0);
-                    if (data.duration && data.duration > 0) {
-                        setEngineDuration(data.duration);
-                    }
-                    // Sync playing state from engine (if engine says paused, respect it)
-                    if (data.paused !== undefined) {
-                        setIsPlaying(!data.paused);
-                    }
+                    if (data.duration > 0) setEngineDuration(data.duration);
                     break;
 
                 case 'engine:ended': {
-                    // Use refs to avoid stale closures
+                    if (endedHandledRef.current) break;
+                    endedHandledRef.current = true;
                     const idx = currentIndexRef.current;
                     const q = queueRef.current;
                     if (idx < q.length - 1) {
-                        const nextIndex = idx + 1;
-                        const nextSong = q[nextIndex];
-                        setCurrentIndex(nextIndex);
-                        setCurrentSong(nextSong);
-                        startPlaybackRef.current(nextSong);
+                        const next = q[idx + 1];
+                        setCurrentIndex(idx + 1);
+                        setCurrentSong(next);
+                        startPlaybackRef.current(next);
                     } else {
                         setIsPlaying(false);
                     }
@@ -156,8 +170,9 @@ export function PlayerProvider({ children }) {
                 }
 
                 case 'engine:error':
-                    console.error('[PlayerContext] Engine error:', data.error);
+                    logger.error('PlayerContext', 'Engine error', data.error);
                     setIsLoadingAudio(false);
+                    setIsPlaying(false);
                     break;
             }
         });
@@ -165,25 +180,20 @@ export function PlayerProvider({ children }) {
         return cleanup;
     }, []);
 
+    // ─── Player controls ──────────────────────────────────────────────────────
+
     const playSong = async (song, relatedSongs = []) => {
         let newQueue = [song];
         let newIndex = 0;
 
         if (relatedSongs.length > 0) {
-            const index = relatedSongs.findIndex(s => {
-                if (song.filePath && s.filePath) return s.filePath === song.filePath;
-                if (song.videoId && s.videoId) return s.videoId === song.videoId;
-                if (song.id && s.id) return s.id === song.id;
-                return false;
-            });
-
-            if (index !== -1) {
-                newQueue = [...relatedSongs];
-                newIndex = index;
-            } else {
-                newQueue = [song, ...relatedSongs];
-                newIndex = 0;
-            }
+            const i = relatedSongs.findIndex(s =>
+                (song.filePath && s.filePath === song.filePath) ||
+                (song.videoId && s.videoId === song.videoId) ||
+                (song.id && s.id === song.id)
+            );
+            if (i !== -1) { newQueue = [...relatedSongs]; newIndex = i; }
+            else { newQueue = [song, ...relatedSongs]; }
         }
 
         setQueue(newQueue);
@@ -192,27 +202,30 @@ export function PlayerProvider({ children }) {
         await startPlayback(song);
     };
 
-    const playNext = () => {
-        if (currentIndex < queue.length - 1) {
-            playQueueTrack(currentIndex + 1);
+    /**
+     * togglePlay — UI is the source of truth for isPlaying.
+     * State flips instantly. IPC fires in the background.
+     * No locks, no awaits, no races.
+     */
+    const togglePlay = () => {
+        if (playbackMode === 'engine' && window.electronAPI) {
+            if (isPlaying) {
+                setIsPlaying(false);
+                window.electronAPI.enginePause();
+            } else {
+                setIsPlaying(true);
+                window.electronAPI.engineResume();
+            }
         }
+        // For local mode, audio element events drive isPlaying via onPlay/onPause
+    };
+
+    const playNext = () => {
+        if (currentIndex < queue.length - 1) playQueueTrack(currentIndex + 1);
     };
 
     const playPrevious = () => {
-        if (currentIndex > 0) {
-            playQueueTrack(currentIndex - 1);
-        }
-    };
-
-    const togglePlay = async () => {
-        if (playbackMode === 'engine' && window.electronAPI) {
-            if (isPlaying) {
-                await window.electronAPI.enginePause();
-            } else {
-                await window.electronAPI.engineResume();
-            }
-        }
-        setIsPlaying(!isPlaying);
+        if (currentIndex > 0) playQueueTrack(currentIndex - 1);
     };
 
     const playQueueTrack = async (index) => {
@@ -222,100 +235,76 @@ export function PlayerProvider({ children }) {
         await startPlayback(queue[index]);
     };
 
-    // Engine-specific controls
-    const engineSeek = async (timeSeconds) => {
+    const engineSeek = (timeSeconds) => {
         if (playbackMode === 'engine' && window.electronAPI?.engineSeek) {
-            setEngineProgress(timeSeconds);
-            await window.electronAPI.engineSeek(timeSeconds);
+            setEngineProgress(timeSeconds); // optimistic UI update
+            window.electronAPI.engineSeek(timeSeconds);
         }
     };
 
-    const engineSetVolume = async (volume) => {
-        if (playbackMode === 'engine' && window.electronAPI?.engineSetVolume) {
-            await window.electronAPI.engineSetVolume(volume);
-        }
-    };
-
-    const engineSetMuted = async (muted) => {
-        if (playbackMode === 'engine' && window.electronAPI?.engineSetMuted) {
-            await window.electronAPI.engineSetMuted(muted);
-        }
-    };
-
-    // Download functions
-    const downloadSong = async (song) => {
-        const result = await mediaService.downloadSong(song, downloads);
-        if (result.success && result.downloadedSong) setDownloads(prev => [...prev, result.downloadedSong]);
-        return result.success;
-    };
+    const engineSetVolume = (vol) => window.electronAPI?.engineSetVolume?.(vol);
+    const engineSetMuted = (m) => window.electronAPI?.engineSetMuted?.(m);
+    const downloadSong = () => logger.warn('PlayerContext', 'downloadSong: not implemented');
 
     const deleteDownload = async (videoId) => {
-        if ((currentSong?.videoId || currentSong?.key) === videoId) {
-            setAudioUrl(null);
-            setIsPlaying(false);
-            if (playbackMode === 'engine') {
-                await window.electronAPI?.engineStop();
-            }
-        }
-        if ((await mediaService.deleteDownloadedSong(videoId, downloads)).success) {
-            setDownloads(prev => prev.filter(d => d.videoId !== videoId));
-        }
+        const result = await mediaService.deleteDownloadedSong(videoId, downloads);
+        if (result.success) setDownloads(prev => prev.filter(d => d.videoId !== videoId));
     };
 
     const isDownloaded = (videoId) => mediaService.isDownloaded(videoId, downloads);
 
-    // Library functions
+    // ─── Library controls ─────────────────────────────────────────────────────
+
     const scanDefaultMusicFolder = async () => {
         if (!window.electronAPI) return;
-        setIsScanning(true);
-        setScanProgress('Scanning default Music folder...');
+        setIsScanning(true); setScanProgress('Scanning Music folder...');
         try {
-            const { result, newSongs } = await mediaService.scanDefaultMusicFolder();
-            if (newSongs.length) {
-                const freshLibrary = await mediaService.loadLibraryData();
-                setLocalLibrary(freshLibrary.localLibrary);
+            const { newSongs } = await mediaService.scanDefaultMusicFolder();
+            if (newSongs?.length) {
+                const { localLibrary: lib } = await mediaService.loadLibraryData();
+                setLocalLibrary(lib);
             }
-            return result;
-        } catch (e) { console.error(e); }
+        } catch (e) { logger.error('PlayerContext', 'scan failed', e); }
         finally { setIsScanning(false); setScanProgress(null); }
     };
 
     const importMusicFolder = async () => {
         if (!window.electronAPI) return;
-        setIsScanning(true);
-        setScanProgress('Selecting folder...');
+        setIsScanning(true); setScanProgress('Selecting folder...');
         try {
             const result = await mediaService.importMusicFolder(importedFolders);
             if (!result) return;
-            if (result.newSongs.length) {
-                const freshLibrary = await mediaService.loadLibraryData();
-                setLocalLibrary(freshLibrary.localLibrary);
+            if (result.newSongs?.length) {
+                const { localLibrary: lib } = await mediaService.loadLibraryData();
+                setLocalLibrary(lib);
             }
             if (result.updatedFolders) setImportedFolders(result.updatedFolders);
-        } catch (e) { console.error(e); }
+        } catch (e) { logger.error('PlayerContext', 'importFolder failed', e); }
         finally { setIsScanning(false); setScanProgress(null); }
     };
 
     const rescanLibrary = async () => {
         if (!window.electronAPI) return;
-        setIsScanning(true);
-        setScanProgress('Rescanning library...');
-        try {
-            setLocalLibrary(await mediaService.rescanLibrary(importedFolders));
-        } catch (e) { console.error(e); }
+        setIsScanning(true); setScanProgress('Rescanning...');
+        try { setLocalLibrary(await mediaService.rescanLibrary(importedFolders)); }
+        catch (e) { logger.error('PlayerContext', 'rescan failed', e); }
         finally { setIsScanning(false); setScanProgress(null); }
     };
 
-    const removeLocalSong = async (songId) => {
-        deleteLocalSong(songId).then(() => setLocalLibrary(prev => prev.filter(s => s.id !== songId))).catch(console.error);
+    const removeLocalSong = (songId) => {
+        deleteLocalSong(songId)
+            .then(() => setLocalLibrary(p => p.filter(s => s.id !== songId)))
+            .catch(e => logger.error('PlayerContext', 'removeLocalSong', e));
     };
+
+    // ─── Context value ────────────────────────────────────────────────────────
 
     return (
         <PlayerContext.Provider value={{
             currentSong, isPlaying, queue, currentIndex, audioUrl, isLoadingAudio, downloads,
             playbackMode, engineProgress, engineDuration,
-            playSong, togglePlay, setIsPlaying, playNext, playPrevious, playQueueTrack, setQueue,
-            addToQueue: (songs) => setQueue(prev => [...prev, ...songs]),
+            playSong, togglePlay, setIsPlaying, playNext, playPrevious, playQueueTrack,
+            setQueue, addToQueue: (songs) => setQueue(p => [...p, ...songs]),
             engineSeek, engineSetVolume, engineSetMuted,
             downloadSong, deleteDownload, isDownloaded,
             localLibrary, importedFolders, isScanning, scanProgress,

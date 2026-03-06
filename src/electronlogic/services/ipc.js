@@ -16,6 +16,7 @@ function registerHandlers({ audioEngine, youtube, innertube, localLibrary }) {
     ipcMain.handle('engine:set-volume', (_, volume) => audioEngine.setVolume(volume));
     ipcMain.handle('engine:set-muted', (_, muted) => audioEngine.setMuted(muted));
     ipcMain.handle('engine:stop', () => audioEngine.stop());
+    ipcMain.handle('engine:get-state', () => audioEngine.getState());
 
     // Local library
     ipcMain.handle('scan-default-music-folder', () => localLibrary.scanDefaultMusicFolder());

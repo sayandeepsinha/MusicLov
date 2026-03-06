@@ -1,4 +1,4 @@
-import { Music, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Maximize2, Minimize2, Loader2, Download, Check } from 'lucide-react';
+import { Music, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Maximize2, Minimize2, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const formatTime = (time) => {
@@ -58,7 +58,7 @@ function QueueItem({ song, index, isActive, onPlay }) {
 }
 
 // Maximized full-screen player view
-export function MaximizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio, progress, duration, isRepeat, isMuted, songIsDownloaded, isDownloading, queue, currentIndex, onMinimize, onTogglePlay, onPrev, onNext, onRepeat, onMute, onDownload, onSeekStart, onSeekEnd, onSeek, onPlayQueueTrack }) {
+export function MaximizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio, progress, duration, isRepeat, isMuted, queue, currentIndex, onMinimize, onTogglePlay, onPrev, onNext, onRepeat, onMute, onSeekStart, onSeekEnd, onSeek, onPlayQueueTrack }) {
     return (
         <motion.div key="maximized" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-neutral-950 pt-8">
             <div className="w-full h-full flex">
@@ -86,9 +86,6 @@ export function MaximizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio,
                             {isLoadingAudio ? <Loader2 className="w-6 h-6 animate-spin" /> : isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
                         </button>
                         <button onClick={onNext} disabled={currentIndex >= queue.length - 1} className="text-white hover:text-neutral-300 disabled:opacity-30"><SkipForward className="w-7 h-7" /></button>
-                        <button disabled className="text-neutral-700 cursor-not-allowed">
-                            <Download className="w-5 h-5" />
-                        </button>
                         <button onClick={onMute} className="text-neutral-500 hover:text-white">
                             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                         </button>
@@ -110,7 +107,7 @@ export function MaximizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio,
 }
 
 // Minimized player bar
-export function MinimizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio, progress, duration, isRepeat, isMuted, songIsDownloaded, isDownloading, currentIndex, queueLength, onMaximize, onTogglePlay, onPrev, onNext, onRepeat, onMute, onDownload, onSeekStart, onSeekEnd, onSeek }) {
+export function MinimizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio, progress, duration, isRepeat, isMuted, currentIndex, queueLength, onMaximize, onTogglePlay, onPrev, onNext, onRepeat, onMute, onSeekStart, onSeekEnd, onSeek }) {
     return (
         <motion.div key="minimized" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed z-50 left-4 right-4 bottom-4 max-w-5xl mx-auto">
             <div className="w-full rounded-2xl p-4 bg-neutral-900/95 border border-white/10 shadow-xl backdrop-blur-xl flex flex-col gap-3">
@@ -139,9 +136,6 @@ export function MinimizedPlayer({ song, thumbnailUrl, isPlaying, isLoadingAudio,
 
                     <div className="flex items-center gap-3 flex-1 justify-end">
                         <button onClick={onRepeat} className={isRepeat ? 'text-purple-400' : 'text-neutral-400 hover:text-white'}><Repeat className="w-4 h-4" /></button>
-                        <button disabled className="text-neutral-700 cursor-not-allowed">
-                            <Download className="w-4 h-4" />
-                        </button>
                         <button onClick={onMute} className="text-neutral-400 hover:text-white">{isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}</button>
                         <button onClick={onMaximize} className="text-neutral-400 hover:text-white"><Maximize2 className="w-4 h-4" /></button>
                     </div>

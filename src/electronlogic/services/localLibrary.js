@@ -7,6 +7,7 @@ const fs = require('fs').promises;
 const { existsSync } = require('fs');
 const { parseFile } = require('music-metadata');
 const { AUDIO_EXTENSIONS, IGNORED_DIRS, getDefaultMusicPath } = require('../config');
+const logger = require('./logger');
 
 const isAudioFile = (filePath) => AUDIO_EXTENSIONS.includes(path.extname(filePath).toLowerCase());
 
@@ -51,7 +52,7 @@ async function scanDirectory(dirPath, results = []) {
                 });
             }
         }
-    } catch (e) { console.error(`[LocalLibrary] Error scanning ${dirPath}:`, e.message); }
+    } catch (e) { logger.error('LocalLibrary', `Error scanning ${dirPath}: ${e.message}`); }
     return results;
 }
 
@@ -60,7 +61,7 @@ async function scanDefaultMusicFolder() {
     if (!existsSync(musicPath)) return { songs: [], folders: [] };
 
     const songs = await scanDirectory(musicPath);
-    console.log(`[LocalLibrary] Found ${songs.length} songs`);
+    logger.info('LocalLibrary', `Found ${songs.length} songs`);
     return {
         songs,
         folders: [...new Set(songs.map(s => path.dirname(s.filePath)))],

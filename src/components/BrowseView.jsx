@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import SongCard from './SongCard';
+import logger from '../common/logger';
 
 export default function BrowseView({ category, onBack }) {
     const [songs, setSongs] = useState([]);
@@ -25,7 +26,7 @@ export default function BrowseView({ category, onBack }) {
                     setSongs(results);
                 }
             } catch (error) {
-                console.error('Failed to fetch category:', error);
+                logger.error('BrowseView', 'Failed to fetch category', error);
             } finally {
                 setLoading(false);
             }

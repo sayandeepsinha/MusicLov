@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { usePlayer } from '../context/PlayerContext';
 import SongCard from './SongCard';
 import CategoryTile from './CategoryTile';
+import logger from '../common/logger';
 
 const CATEGORIES = [
     { id: 'hindi', title: 'Top Hindi', query: 'Bollywood hits songs 2024', icon: Star, color: 'from-orange-500 to-pink-500', limit: 30 },
@@ -31,7 +32,7 @@ export default function HomeView({ onCategoryClick, searchResults, setSearchResu
                 setSearchResults(songs);
             }
         } catch (error) {
-            console.error('Search failed:', error);
+            logger.error('HomeView', 'Search failed', error);
         } finally {
             setLoading(false);
         }

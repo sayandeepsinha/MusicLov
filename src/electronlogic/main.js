@@ -12,10 +12,13 @@ if (protocol) {
         protocol.registerSchemesAsPrivileged([
             { scheme: 'media', privileges: { secure: true, supportFetchAPI: true, bypassCSP: true, stream: true } }
         ]);
-    } catch (e) { console.error('Protocol registration failed:', e); }
+    } catch (e) { /* logger not yet available at this point — use console as fallback */
+        console.error('[MusicLov] Protocol registration failed:', e);
+    }
 }
 
 // Services
+const logger = require('./services/logger');
 const audioEngine = require('./services/audioEngine');
 const youtube = require('./services/youtube');
 const innertube = require('./services/innertube');

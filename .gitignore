@@ -25,3 +25,6 @@ Thumbs.db
 *.keystore
 !debug.keystore
 .kotlin/
+
+# Runtime logs
+src/logs/musiclov.log
