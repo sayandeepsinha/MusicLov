@@ -17,6 +17,9 @@ jobs:
           - os: windows-latest
             platform: win
 
+          - os: ubuntu-latest
+            platform: linux
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -47,14 +50,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build Electron (Linux)
+        if: matrix.platform == 'linux'
+        run: npx electron-builder --linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MusicLov-${{ matrix.platform }}
           path: |
             dist/*.dmg
-            dist/*.zip
             dist/*.exe
+            dist/*.rpm
+            dist/*.deb
           if-no-files-found: error
 
   release:
@@ -71,7 +81,11 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/**/*
+          files: |
+            artifacts/MusicLov-mac/*.dmg
+            artifacts/MusicLov-win/*.exe
+            artifacts/MusicLov-linux/*.rpm
+            artifacts/MusicLov-linux/*.deb
           draft: false
           prerelease: false
         env:

@@ -48,6 +48,20 @@ npm run package
 | `npm run electron:dev` | Start Electron with hot reload |
 | `npm run package` | Package as macOS app |
 
+## Troubleshooting Installation (Security Warnings)
+
+Since this app is not signed with expensive Apple/Microsoft developer certificates, your OS will show a warning:
+
+### 🍏 macOS ("App is damaged" or "Unidentified Developer")
+1. Drag the app to your **Applications** folder.
+2. **Right-click** (or Control-click) the app icon and select **Open**.
+3. A dialog will appear; click **Open** again. 
+4. *Alternatively:* Run `sudo xattr -rd com.apple.quarantine /Applications/MusicLov.app` in your terminal.
+
+### 🪟 Windows ("Windows protected your PC")
+1. Click **More info**.
+2. Click **Run anyway**.
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) for details.
