@@ -10,6 +10,7 @@
  *  - getState()         → current engine state        (used for UI sync on reload)
  */
 const { BrowserWindow, session } = require('electron');
+const path = require('path');
 const logger = require('./logger');
 
 let engineWindow = null;
@@ -39,6 +40,7 @@ function getOrCreateWindow() {
             backgroundThrottling: false,
             webSecurity: true,
             partition: ENGINE_PARTITION,
+            preload: path.join(__dirname, '../enginePreload.js'),
         },
     });
 
@@ -126,6 +128,21 @@ async function injectPlayIntent(win) {
             (function() {
                 if (window._mlInstalled) return;
                 window._mlInstalled = true;
+
+                // Disable YouTube's MediaSession handlers so they don't hijack keyboard keys from the renderer
+                if (navigator.mediaSession) {
+                    const noop = () => {};
+                    navigator.mediaSession.setActionHandler = noop;
+                    navigator.mediaSession.metadata = null;
+                    navigator.mediaSession.playbackState = 'none';
+                    // Optional: completely mock it to be sure
+                    Object.defineProperty(navigator, 'mediaSession', {
+                        value: { setActionHandler: noop, metadata: null, playbackState: 'none' },
+                        writable: false,
+                        configurable: false
+                    });
+                }
+
                 window._mlShouldPlay = true;
                 function tryPlay() {
                     const player = document.querySelector('#movie_player');

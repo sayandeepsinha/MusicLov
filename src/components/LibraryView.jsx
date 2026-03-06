@@ -3,7 +3,6 @@
  */
 import { useState } from 'react';
 import { Music, Library, Play, Trash2, FolderOpen, RefreshCw, HardDrive, Download, FileAudio, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayer } from '../context/PlayerContext';
 import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
 
@@ -18,46 +17,41 @@ export default function LibraryView() {
     const totalSongs = localLibrary.length + downloads.length;
 
     return (
-        <div className="max-w-5xl mx-auto px-4 pt-4 pb-32">
-            {/* Header */}
-            <div className="p-6 rounded-2xl mb-6 bg-gradient-to-br from-purple-600 to-blue-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIxIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
-                <div className="relative flex items-center justify-between">
+        <div className="max-w-5xl mx-auto flex flex-col gap-6">
+            <div className="p-6 rounded-2xl border bg-white text-blue-900 border-blue-100 shadow-sm">
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                            <Library className="w-8 h-8 text-white" />
+                        <div className="p-4 bg-blue-50 rounded-xl">
+                            <Library className="w-8 h-8 text-blue-600" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold text-white">Your Library</h1>
-                            <p className="text-white/70">
+                            <h1 className="text-2xl font-bold">Your Library</h1>
+                            <p className="text-sm text-blue-600">
                                 {totalSongs} {totalSongs === 1 ? 'song' : 'songs'} • {importedFolders.length} imported folder{importedFolders.length !== 1 && 's'}
                             </p>
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={() => rescanLibrary()} disabled={isScanning} className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all flex items-center gap-2 text-white disabled:opacity-50">
+                        <button onClick={() => rescanLibrary()} disabled={isScanning} className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition text-sm font-medium disabled:opacity-50 border border-blue-100 hover:border-blue-200">
                             <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">Rescan</span>
                         </button>
-                        <button onClick={() => importMusicFolder()} disabled={isScanning} className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all flex items-center gap-2 text-white disabled:opacity-50">
+                        <button onClick={() => importMusicFolder()} disabled={isScanning} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-sm font-medium disabled:opacity-50">
                             <FolderOpen className="w-4 h-4" />
                             <span className="hidden sm:inline">Import Folder</span>
                         </button>
                     </div>
                 </div>
 
-                <AnimatePresence>
-                    {isScanning && (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-4 flex items-center gap-3 text-white/80">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-sm">{scanProgress || 'Scanning...'}</span>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {isScanning && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-blue-600">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{scanProgress || 'Scanning...'}</span>
+                    </div>
+                )}
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-2 mb-6">
+            <div className="flex gap-2 border-b border-blue-100 pb-2">
                 {[
                     { id: 'local', label: 'Local Files', icon: HardDrive, count: localLibrary.length },
                     { id: 'downloads', label: 'Downloads', icon: Download, count: downloads.length }
@@ -65,56 +59,48 @@ export default function LibraryView() {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-purple-600 text-white' : 'bg-neutral-800/50 text-neutral-400 hover:text-white hover:bg-neutral-800'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition ${activeTab === tab.id ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-500' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}
                     >
                         <tab.icon className="w-4 h-4" />
                         {tab.label}
-                        <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">{tab.count}</span>
+                        <span className="text-xs bg-white text-gray-500 px-2 py-0.5 rounded-full border border-gray-100">{tab.count}</span>
                     </button>
                 ))}
             </div>
 
-            {/* Content */}
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={activeTab}
-                    initial={{ opacity: 0, x: activeTab === 'local' ? -20 : 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: activeTab === 'local' ? 20 : -20 }}
-                >
-                    {activeTab === 'local' ? (
-                        localLibrary.length === 0 ? (
-                            <EmptyState icon={FileAudio} title="No local music found" desc="We'll automatically scan your Music folder. You can also import manually." action={importMusicFolder} btnText="Import Music Folder" disabled={isScanning} />
-                        ) : (
-                            <LocalSongsList songs={localLibrary} onPlay={playSong} onRemove={removeLocalSong} />
-                        )
+            <div>
+                {activeTab === 'local' ? (
+                    localLibrary.length === 0 ? (
+                        <EmptyState icon={FileAudio} title="No local music found" desc="We'll automatically scan your Music folder. You can also import manually." action={importMusicFolder} btnText="Import Music Folder" disabled={isScanning} />
                     ) : (
-                        downloads.length === 0 ? (
-                            <EmptyState icon={Download} title="No downloads yet" desc="Download songs from the streaming library to listen offline." />
-                        ) : (
-                            <div className="space-y-1">
-                                {downloads.map(song => (
-                                    <SongRow key={song.videoId} song={song} onPlay={() => playSong(song, downloads)} onRemove={() => deleteDownload(song.videoId)} thumbnail={song.thumbnail?.url} />
-                                ))}
-                            </div>
-                        )
-                    )}
-                </motion.div>
-            </AnimatePresence>
+                        <LocalSongsList songs={localLibrary} onPlay={playSong} onRemove={removeLocalSong} />
+                    )
+                ) : (
+                    downloads.length === 0 ? (
+                        <EmptyState icon={Download} title="No downloads yet" desc="Download songs from the streaming library to listen offline." />
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {downloads.map(song => (
+                                <SongRow key={song.videoId} song={song} onPlay={() => playSong(song, downloads)} onRemove={() => deleteDownload(song.videoId)} thumbnail={song.thumbnail?.url} />
+                            ))}
+                        </div>
+                    )
+                )}
+            </div>
         </div>
     );
 }
 
 function EmptyState({ icon: Icon, title, desc, action, btnText, disabled }) {
     return (
-        <div className="text-center mt-12 py-16 rounded-2xl bg-neutral-900/30 border border-neutral-800/50">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-600/20 to-blue-600/20 flex items-center justify-center">
-                <Icon className="w-10 h-10 text-purple-400" />
+        <div className="flex flex-col items-center text-center p-12 bg-white rounded-2xl border border-blue-50 shadow-sm mt-8">
+            <div className="p-6 bg-blue-50 text-blue-400 rounded-full mb-4 border border-blue-100">
+                <Icon className="w-12 h-12" />
             </div>
-            <h2 className="text-xl font-semibold text-white mb-2">{title}</h2>
-            <p className="text-neutral-400 mb-6 max-w-md mx-auto">{desc}</p>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">{title}</h2>
+            <p className="text-gray-500 max-w-sm mb-6">{desc}</p>
             {action && (
-                <button onClick={action} disabled={disabled} className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium hover:from-purple-500 hover:to-blue-500 transition-all flex items-center gap-2 mx-auto disabled:opacity-50">
+                <button onClick={action} disabled={disabled} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition disabled:opacity-50">
                     <FolderOpen className="w-5 h-5" /> {btnText}
                 </button>
             )}
@@ -131,13 +117,13 @@ function LocalSongsList({ songs, onPlay, onRemove }) {
     const sortedSongs = sortedArtists.flatMap(artist => songsByArtist[artist]);
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
             {sortedArtists.map(artist => (
                 <div key={artist}>
-                    <h3 className="text-sm font-medium text-neutral-400 mb-3 px-1 sticky top-0 bg-neutral-950/80 backdrop-blur-sm py-2 z-10">
+                    <h3 className="text-sm font-bold text-blue-500 uppercase tracking-wider mb-2 sticky top-0 bg-white/90 py-1 backdrop-blur-sm z-10">
                         {artist} • {songsByArtist[artist].length} song{songsByArtist[artist].length !== 1 && 's'}
                     </h3>
-                    <div className="space-y-1">
+                    <div className="flex flex-col gap-1.5">
                         {songsByArtist[artist].map(song => (
                             <SongRow key={song.id} song={song} onPlay={() => onPlay(song, sortedSongs)} onRemove={() => onRemove(song.id)} thumbnail={song.thumbnail?.url} showFormat />
                         ))}
@@ -150,8 +136,8 @@ function LocalSongsList({ songs, onPlay, onRemove }) {
 
 function SongRow({ song, onPlay, onRemove, thumbnail, showFormat }) {
     return (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 p-3 rounded-xl bg-neutral-900/50 hover:bg-neutral-800/50 transition-colors group">
-            <div onClick={onPlay} className="flex items-center gap-4 flex-1 cursor-pointer">
+        <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-transparent hover:border-blue-100 hover:shadow-sm transition group">
+            <div onClick={onPlay} className="flex-1 flex items-center gap-3 cursor-pointer min-w-0">
                 {thumbnail ? (
                     <img
                         src={upgradeThumbnailUrl(thumbnail)}
@@ -160,27 +146,27 @@ function SongRow({ song, onPlay, onRemove, thumbnail, showFormat }) {
                             e.target.src = thumbnail;
                         }}
                         alt=""
-                        className="w-12 h-12 rounded-lg object-cover"
+                        className="w-12 h-12 rounded object-cover bg-gray-100"
                     />
                 ) : (
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-600/30 to-blue-600/30 flex items-center justify-center">
-                        <Music className="w-5 h-5 text-purple-400" />
+                    <div className="w-12 h-12 rounded bg-blue-50 text-blue-300 border border-blue-100 flex items-center justify-center">
+                        <Music className="w-6 h-6" />
                     </div>
                 )}
-                <div className="min-w-0 flex-1">
-                    <h3 className="font-medium text-white truncate group-hover:text-purple-400 transition-colors">{song.title}</h3>
-                    <div className="flex items-center gap-2 text-sm text-neutral-400">
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-gray-800 truncate group-hover:text-blue-600 transition">{song.title}</h3>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
                         <span className="truncate">{song.artist}</span>
-                        {showFormat && song.format && <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-xs uppercase text-neutral-500">{song.format}</span>}
+                        {showFormat && song.format && <span className="px-1.5 bg-gray-100 text-gray-400 rounded text-[10px] uppercase font-bold">{song.format}</span>}
                     </div>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition mr-2">
+                    <Play className="w-4 h-4 ml-0.5 fill-current" />
                 </div>
             </div>
-            <button onClick={onRemove} className="p-2 text-neutral-500 hover:text-red-400 transition-colors shrink-0" title="Remove">
+            <button onClick={onRemove} title="Remove" className="p-2 text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 rounded-lg transition">
                 <Trash2 className="w-4 h-4" />
             </button>
-        </motion.div>
+        </div>
     );
 }

@@ -10,11 +10,14 @@
  *   logger.error('PlayerContext', 'Engine error', err);
  */
 
+const isDev = process.env.NODE_ENV === 'development';
+
 function _format(level, tag, message) {
     return `[MusicLov][${level}][${tag}] ${message}`;
 }
 
 function info(tag, msg, ...args) {
+    if (!isDev) return;
     if (args.length) {
         console.info(_format('INFO', tag, msg), ...args);
     } else {
@@ -23,6 +26,7 @@ function info(tag, msg, ...args) {
 }
 
 function warn(tag, msg, ...args) {
+    if (!isDev) return;
     if (args.length) {
         console.warn(_format('WARN', tag, msg), ...args);
     } else {
@@ -31,6 +35,7 @@ function warn(tag, msg, ...args) {
 }
 
 function error(tag, msg, ...args) {
+    if (!isDev) return;
     if (args.length) {
         console.error(_format('ERROR', tag, msg), ...args);
     } else {

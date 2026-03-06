@@ -1,46 +1,22 @@
-/**
- * Song card component for displaying individual songs
- */
 import { Play, Music } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
 
 export default function SongCard({ song, onClick }) {
     return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={onClick}
-            className="group relative bg-neutral-900/50 border border-white/5 hover:border-purple-500/50 rounded-xl p-3 cursor-pointer hover:bg-neutral-800/50 transition-all duration-300"
-        >
-            <div className="flex flex-col gap-3">
-                <div className="relative aspect-square">
-                    {song.thumbnail?.url ? (
-                        <img
-                            src={upgradeThumbnailUrl(song.thumbnail.url)}
-                            onError={(e) => {
-                                e.target.onerror = null; // Prevent infinite loop
-                                e.target.src = song.thumbnail.url;
-                            }}
-                            alt={song.title}
-                            className="w-full h-full rounded-lg object-cover shadow-lg"
-                        />
-                    ) : (
-                        <div className="w-full h-full rounded-lg bg-neutral-800 flex items-center justify-center">
-                            <Music className="w-10 h-10 text-neutral-600" />
-                        </div>
-                    )}
-                    <div className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 flex items-center justify-center shadow-lg hover:scale-110 transition-all">
-                        <Play className="w-5 h-5 text-white fill-white ml-0.5" />
-                    </div>
-                </div>
-                <div className="min-w-0">
-                    <h3 className="font-semibold text-white line-clamp-2 group-hover:text-purple-400 transition-colors text-sm">
-                        {song.title}
-                    </h3>
-                    <p className="text-xs text-neutral-400 truncate mt-1">{song.artist}</p>
+        <div onClick={onClick} className="flex flex-col gap-2 p-3 bg-white border border-blue-50 rounded-xl shadow-sm hover:shadow-md hover:border-blue-200 transition cursor-pointer">
+            <div className="relative aspect-square w-full rounded-lg bg-blue-50 flex items-center justify-center overflow-hidden">
+                {song.thumbnail ? (
+                    <img src={song.thumbnail.url || (song.thumbnail.thumbnails && song.thumbnail.thumbnails[0]?.url)} alt={song.title} className="w-full h-full object-cover" />
+                ) : (
+                    <Music className="w-8 h-8 text-blue-300" />
+                )}
+                <div className="absolute bottom-2 right-2 w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center shadow hover:bg-blue-500 transition">
+                    <Play className="w-4 h-4 text-white ml-0.5 fill-current" />
                 </div>
             </div>
-        </motion.div>
+            <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-gray-800 truncate">{song.title}</h3>
+                <p className="text-xs text-gray-500 truncate">{song.artist}</p>
+            </div>
+        </div>
     );
 }

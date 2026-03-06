@@ -13,7 +13,6 @@ export default function BrowseView({ category, onBack }) {
     const { playSong } = usePlayer();
     const Icon = category.icon;
 
-    // Fetch songs when category changes
     useEffect(() => {
         const fetchSongs = async () => {
             setLoading(true);
@@ -35,24 +34,20 @@ export default function BrowseView({ category, onBack }) {
     }, [category]);
 
     return (
-        <div className="max-w-5xl mx-auto px-4 pt-4 pb-32">
-            {/* Category Header */}
-            <div className={`p-6 rounded-2xl mb-6 bg-gradient-to-br ${category.color}`}>
-                <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center">
-                        <Icon className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold text-white">{category.title}</h1>
-                        <p className="text-white/70">Top trending songs</p>
-                    </div>
+        <div className="max-w-5xl mx-auto flex flex-col gap-6">
+            <div className={`p-6 rounded-2xl border flex items-center gap-4 ${category.color}`}>
+                <div className="p-4 bg-white/60 rounded-xl">
+                    <Icon className="w-8 h-8" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-bold">{category.title}</h1>
+                    <p className="text-sm opacity-80">Top trending songs</p>
                 </div>
             </div>
 
-            {/* Songs Grid */}
             {loading ? (
-                <div className="flex justify-center mt-20">
-                    <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
+                <div className="flex justify-center mt-12">
+                    <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                 </div>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

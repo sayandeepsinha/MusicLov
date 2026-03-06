@@ -4,14 +4,7 @@ const logger = require('./logger');
  * Utility to upgrade thumbnail resolution
  */
 function upgradeThumbnailUrl(url) {
-    if (!url) return url;
-    if (url.includes('googleusercontent.com') || url.includes('ggpht.com')) {
-        return url.replace(/(=w\d+-h\d+|=s\d+).*/, '=s400');
-    }
-    if (url.includes('ytimg.com')) {
-        return url.replace(/\/(default|hqdefault|mqdefault|sddefault|hq720)\.jpg/, '/hqdefault.jpg');
-    }
-    return url;
+    return null;
 }
 const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 const BASE_URL = 'https://music.youtube.com';

@@ -12,24 +12,27 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { app } = require('electron');
 
-// Resolve log directory: src/electronlogic/services/ → src/logs/
-const LOG_DIR = path.join(__dirname, '../../logs');
-const LOG_FILE = path.join(LOG_DIR, 'musiclov.log');
+// Only enable file logging in development/unpackaged mode
+const isDev = app ? !app.isPackaged : process.env.NODE_ENV !== 'production';
+const LOG_DIR = isDev ? (app ? path.join(app.getPath('userData'), 'logs') : path.join(__dirname, '../../logs')) : null;
+const LOG_FILE = LOG_DIR ? path.join(LOG_DIR, 'musiclov.log') : null;
 
-// Ensure the logs directory exists
-if (!fs.existsSync(LOG_DIR)) {
+// Ensure the logs directory exists if in dev
+if (isDev && LOG_DIR && !fs.existsSync(LOG_DIR)) {
     fs.mkdirSync(LOG_DIR, { recursive: true });
 }
 
-// Append-mode write stream (non-blocking)
-const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a' });
+// Append-mode write stream (only in dev)
+const logStream = isDev && LOG_FILE ? fs.createWriteStream(LOG_FILE, { flags: 'a' }) : null;
 
 function _timestamp() {
     return new Date().toISOString().replace('T', ' ').replace('Z', '');
 }
 
 function _write(level, tag, message, extra) {
+    if (!logStream) return; // Silent in production
     const line = `[${_timestamp()}] [${level}] [${tag}] ${message}${extra ? ' ' + extra : ''}`;
     // File only — no terminal output
     logStream.write(line + '\n');

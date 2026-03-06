@@ -204,20 +204,21 @@ export function PlayerProvider({ children }) {
 
     /**
      * togglePlay — UI is the source of truth for isPlaying.
-     * State flips instantly. IPC fires in the background.
-     * No locks, no awaits, no races.
+     * State flips instantly for any mode. IPC fires in the background.
      */
     const togglePlay = () => {
-        if (playbackMode === 'engine' && window.electronAPI) {
-            if (isPlaying) {
-                setIsPlaying(false);
-                window.electronAPI.enginePause();
-            } else {
-                setIsPlaying(true);
-                window.electronAPI.engineResume();
+        setIsPlaying(prev => {
+            const nextPlaying = !prev;
+
+            if (playbackMode === 'engine' && window.electronAPI) {
+                if (nextPlaying) {
+                    window.electronAPI.engineResume();
+                } else {
+                    window.electronAPI.enginePause();
+                }
             }
-        }
-        // For local mode, audio element events drive isPlaying via onPlay/onPause
+            return nextPlaying;
+        });
     };
 
     const playNext = () => {

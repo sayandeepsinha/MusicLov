@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { AnimatePresence } from 'framer-motion';
 import { MaximizedPlayer, MinimizedPlayer } from './PlayerUI';
 import { upgradeThumbnailUrl } from '../common/thumbnailProvider';
 import logger from '../common/logger';
@@ -22,19 +21,9 @@ export default function Player() {
     const [isSeeking, setIsSeeking] = useState(false);
     const isProgrammaticRef = useRef(false);
 
-    // Refs so media session handlers always have fresh values without re-registering
-    const progressRef = useRef(0);
-    const durationRef = useRef(0);
-    const playbackModeRef = useRef(playbackMode);
-
     // Derived: which progress/duration to show
     const progress = playbackMode === 'engine' ? engineProgress : localProgress;
     const duration = playbackMode === 'engine' ? engineDuration : localDuration;
-
-    // Keep refs in sync
-    useEffect(() => { progressRef.current = progress; }, [progress]);
-    useEffect(() => { durationRef.current = duration; }, [duration]);
-    useEffect(() => { playbackModeRef.current = playbackMode; }, [playbackMode]);
 
     // === LOCAL AUDIO ELEMENT EFFECTS (only active for local files) ===
 
@@ -73,64 +62,6 @@ export default function Player() {
         isPlaying ? audioRef.current.play().catch(() => { }) : audioRef.current.pause();
         setTimeout(() => { isProgrammaticRef.current = false; }, 100);
     }, [isPlaying, audioUrl, playbackMode]);
-
-    // === MEDIA SESSION (works for both modes) ===
-
-    useEffect(() => {
-        if (!('mediaSession' in navigator)) return;
-
-        const handlers = {
-            play: () => togglePlay(),
-            pause: () => togglePlay(),
-            previoustrack: playPrevious,
-            nexttrack: playNext,
-            seekbackward: () => {
-                // Use refs to always get latest values — avoids stale closure
-                const newTime = Math.max(0, progressRef.current - 10);
-                if (playbackModeRef.current === 'engine') {
-                    engineSeek(newTime);
-                } else if (audioRef.current) {
-                    audioRef.current.currentTime = newTime;
-                    setLocalProgress(newTime);
-                }
-            },
-            seekforward: () => {
-                const newTime = Math.min(durationRef.current, progressRef.current + 10);
-                if (playbackModeRef.current === 'engine') {
-                    engineSeek(newTime);
-                } else if (audioRef.current) {
-                    audioRef.current.currentTime = newTime;
-                    setLocalProgress(newTime);
-                }
-            },
-        };
-
-        Object.entries(handlers).forEach(([action, handler]) =>
-            navigator.mediaSession.setActionHandler(action, handler)
-        );
-        return () => Object.keys(handlers).forEach(action =>
-            navigator.mediaSession.setActionHandler(action, null)
-        );
-        // Only re-register when stable references change (not progress/duration — handled by refs)
-    }, [playNext, playPrevious, togglePlay, engineSeek]);
-
-    // Update MediaSession metadata
-    useEffect(() => {
-        if (!('mediaSession' in navigator) || !currentSong) return;
-        const thumb = currentSong.thumbnail?.url || currentSong.thumbnail?.thumbnails?.[0]?.url;
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: currentSong.title || 'Unknown',
-            artist: currentSong.artist || currentSong.authors?.map(a => a.name).join(', ') || 'Unknown',
-            album: currentSong.album || 'MusicLov',
-            artwork: thumb ? [{ src: thumb, sizes: '512x512', type: 'image/jpeg' }] : []
-        });
-    }, [currentSong]);
-
-    // Update MediaSession playback state
-    useEffect(() => {
-        if (!('mediaSession' in navigator)) return;
-        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    }, [isPlaying]);
 
     // === EVENT HANDLERS ===
 
@@ -188,7 +119,7 @@ export default function Player() {
     };
 
     return (
-        <>
+        <div className="z-50 shrink-0">
             {/* Audio element — only used for local file playback */}
             <audio
                 ref={audioRef}
@@ -196,25 +127,23 @@ export default function Player() {
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={(e) => setLocalDuration(e.target.duration)}
                 onEnded={handleEnded}
-                onPlay={() => !isProgrammaticRef.current && playbackMode === 'local' && setIsPlaying(true)}
-                onPause={() => !isProgrammaticRef.current && playbackMode === 'local' && setIsPlaying(false)}
+                onPlay={() => !isProgrammaticRef.current && playbackMode === 'local' && !isPlaying && setIsPlaying(true)}
+                onPause={() => !isProgrammaticRef.current && playbackMode === 'local' && isPlaying && setIsPlaying(false)}
                 className="hidden"
             />
-            <AnimatePresence mode="wait">
-                {isMaximized ? (
-                    <MaximizedPlayer
-                        {...commonProps}
-                        queue={queue}
-                        onMinimize={() => setIsMaximized(false)}
-                        onPlayQueueTrack={playQueueTrack}
-                    />
-                ) : (
-                    <MinimizedPlayer
-                        {...commonProps}
-                        onMaximize={() => setIsMaximized(true)}
-                    />
-                )}
-            </AnimatePresence>
-        </>
+            {isMaximized ? (
+                <MaximizedPlayer
+                    {...commonProps}
+                    queue={queue}
+                    onMinimize={() => setIsMaximized(false)}
+                    onPlayQueueTrack={playQueueTrack}
+                />
+            ) : (
+                <MinimizedPlayer
+                    {...commonProps}
+                    onMaximize={() => setIsMaximized(true)}
+                />
+            )}
+        </div>
     );
 }
