@@ -3,10 +3,11 @@
  */
 const { ipcMain } = require('electron');
 
-function registerHandlers({ audioEngine, youtube, innertube, localLibrary }) {
+function registerHandlers({ audioEngine, youtube, innertube, localLibrary, recommender }) {
     // Search & Browse
     ipcMain.handle('search', (_, query) => innertube.search(query));
     ipcMain.handle('browse', (_, { query, limit = 30 }) => innertube.browse(query, limit));
+    ipcMain.handle('get-recommendations', (_, { videoId, limit }) => recommender.getRecommendations(videoId, limit));
 
     // Audio Engine controls (YouTube playback)
     ipcMain.handle('engine:play', (_, videoId) => audioEngine.play(videoId));

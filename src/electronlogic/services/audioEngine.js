@@ -11,6 +11,7 @@
  */
 const { BrowserWindow, session } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const logger = require('./logger');
 
 let engineWindow = null;
@@ -179,6 +180,16 @@ async function play(videoId) {
 
     try {
         await win.loadURL(`https://www.youtube.com/watch?v=${videoId}`, { userAgent: USER_AGENT });
+
+        // Inject the Yes BlockTheAds userscript to aggressively strip ads
+        try {
+            const adBlockerScript = fs.readFileSync(path.join(__dirname, '../adfilter/yesblocktheads.user.js'), 'utf-8');
+            await win.webContents.executeJavaScript(adBlockerScript);
+            logger.info('AudioEngine', 'Ad blocker injected successfully.');
+        } catch (scriptErr) {
+            logger.error('AudioEngine', 'Failed to inject ad blocker script', scriptErr.message);
+        }
+
         await injectPlayIntent(win);
         startPoll();
     } catch (err) {

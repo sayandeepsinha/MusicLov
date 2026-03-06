@@ -22,6 +22,7 @@ export function PlayerProvider({ children }) {
     const [isLoadingAudio, setIsLoadingAudio] = useState(false);
     const [downloads, setDownloads] = useState([]);
     const [playbackMode, setPlaybackMode] = useState(null); // 'engine' | 'local'
+    const [isRepeat, setIsRepeat] = useState(false);
     const [audioUrl, setAudioUrl] = useState(null);
     const [engineProgress, setEngineProgress] = useState(0);
     const [engineDuration, setEngineDuration] = useState(0);
@@ -35,6 +36,8 @@ export function PlayerProvider({ children }) {
     const currentIndexRef = useRef(-1);
     const downloadsRef = useRef([]);
     const scanInitiatedRef = useRef(false);
+    const isRepeatRef = useRef(false);
+    const currentSongRef = useRef(null);
 
     // Guard: prevent engine:ended from firing twice for the same song
     const endedHandledRef = useRef(false);
@@ -42,6 +45,8 @@ export function PlayerProvider({ children }) {
     useEffect(() => { queueRef.current = queue; }, [queue]);
     useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
     useEffect(() => { downloadsRef.current = downloads; }, [downloads]);
+    useEffect(() => { isRepeatRef.current = isRepeat; }, [isRepeat]);
+    useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
 
     // ─── Initialisation ───────────────────────────────────────────────────────
 
@@ -63,16 +68,10 @@ export function PlayerProvider({ children }) {
 
     // Sync with engine on mount — handles HMR reloads where engine keeps running
     useEffect(() => {
-        if (!window.electronAPI?.engineGetState) return;
-        window.electronAPI.engineGetState().then(state => {
-            if (!state || !state.videoId) return;
-            // Engine is mid-playback but UI just (re)mounted — re-attach
-            setEngineProgress(state.currentTime || 0);
-            setEngineDuration(state.duration || 0);
-            setIsPlaying(state.isPlaying || false);
-            setIsLoadingAudio(false);
-            setPlaybackMode('engine');
-        }).catch(() => { });
+        if (!window.electronAPI?.engineStop) return;
+        // If the frontend reloads (User refresh or HMR), the UI context is wiped.
+        // We must stop the background engine explicitly to prevent "ghost" music playing without controls.
+        window.electronAPI.engineStop().catch(() => { });
     }, []);
 
     // ─── Core playback ────────────────────────────────────────────────────────
@@ -156,6 +155,11 @@ export function PlayerProvider({ children }) {
                 case 'engine:ended': {
                     if (endedHandledRef.current) break;
                     endedHandledRef.current = true;
+                    if (isRepeatRef.current) {
+                        const current = currentSongRef.current;
+                        if (current) startPlaybackRef.current(current);
+                        break;
+                    }
                     const idx = currentIndexRef.current;
                     const q = queueRef.current;
                     if (idx < q.length - 1) {
@@ -200,6 +204,24 @@ export function PlayerProvider({ children }) {
         setCurrentIndex(newIndex);
         setCurrentSong(song);
         await startPlayback(song);
+
+        // Fetch YouTube Music AutoMix recommendations for endless radio
+        const videoId = song.videoId || song.id;
+        if (videoId && window.electronAPI?.getRecommendations) {
+            try {
+                const recommendations = await window.electronAPI.getRecommendations(videoId, 20);
+                if (recommendations && recommendations.length > 0) {
+                    setQueue(prevQueue => {
+                        // Avoid duplicates
+                        const existingIds = new Set(prevQueue.map(s => s.videoId || s.id));
+                        const uniqueRecs = recommendations.filter(r => !existingIds.has(r.videoId));
+                        return [...prevQueue, ...uniqueRecs];
+                    });
+                }
+            } catch (err) {
+                logger.error('PlayerContext', 'Failed to fetch recommendations', err);
+            }
+        }
     };
 
     /**
@@ -233,8 +255,18 @@ export function PlayerProvider({ children }) {
         if (index < 0 || index >= queue.length) return;
         setCurrentIndex(index);
         setCurrentSong(queue[index]);
-        await startPlayback(queue[index]);
+        await startPlaybackRef.current(queue[index]); // Use ref explicitly for late-bind
     };
+
+    // ─── Media Key Event Listener ─────────────────────────────────────────────
+    useEffect(() => {
+        if (!window.electronAPI?.onMediaKey) return;
+        return window.electronAPI.onMediaKey((action) => {
+            if (action === 'play-pause') togglePlay();
+            else if (action === 'next-track') playNext();
+            else if (action === 'previous-track') playPrevious();
+        });
+    }, [togglePlay, playNext, playPrevious]);
 
     const engineSeek = (timeSeconds) => {
         if (playbackMode === 'engine' && window.electronAPI?.engineSeek) {
@@ -303,7 +335,7 @@ export function PlayerProvider({ children }) {
     return (
         <PlayerContext.Provider value={{
             currentSong, isPlaying, queue, currentIndex, audioUrl, isLoadingAudio, downloads,
-            playbackMode, engineProgress, engineDuration,
+            playbackMode, engineProgress, engineDuration, isRepeat, setIsRepeat,
             playSong, togglePlay, setIsPlaying, playNext, playPrevious, playQueueTrack,
             setQueue, addToQueue: (songs) => setQueue(p => [...p, ...songs]),
             engineSeek, engineSetVolume, engineSetMuted,

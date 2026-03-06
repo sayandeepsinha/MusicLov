@@ -1,7 +1,7 @@
 /**
  * MusicLov - Electron Main Process
  */
-const { app, BrowserWindow, protocol } = require('electron');
+const { app, BrowserWindow, protocol, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Readable } = require('stream');
@@ -23,11 +23,13 @@ const audioEngine = require('./services/audioEngine');
 const youtube = require('./services/youtube');
 const innertube = require('./services/innertube');
 const localLibrary = require('./services/localLibrary');
+const recommender = require('./recommender');
 const { registerHandlers } = require('./services/ipc');
 const { MIME_TYPES } = require('./config');
 
-// Suppress noisy Chromium internal warnings (SharedImageManager, kern.hv_vmm_present, etc.)
+// Suppress noisy Chromium internal warnings
 app.commandLine.appendSwitch('disable-logging');
+app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService');
 
 let mainWindow;
 
@@ -77,8 +79,13 @@ function handleMediaRequest(request) {
 
 app.whenReady().then(() => {
     protocol.handle('media', handleMediaRequest);
-    registerHandlers({ audioEngine, youtube, innertube, localLibrary });
+    registerHandlers({ audioEngine, youtube, innertube, localLibrary, recommender });
     createWindow();
+
+    // Register media keys to forward to UI
+    globalShortcut.register('MediaPlayPause', () => { if (mainWindow) mainWindow.webContents.send('media:play-pause'); });
+    globalShortcut.register('MediaNextTrack', () => { if (mainWindow) mainWindow.webContents.send('media:next-track'); });
+    globalShortcut.register('MediaPreviousTrack', () => { if (mainWindow) mainWindow.webContents.send('media:previous-track'); });
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

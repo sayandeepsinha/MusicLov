@@ -1,21 +1,37 @@
-import { useState } from 'react';
-import { Search, Loader2, Star, Globe, TrendingUp, Flame } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Loader2 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import SongCard from './SongCard';
-import CategoryTile from './CategoryTile';
 import logger from '../common/logger';
 
-const CATEGORIES = [
-    { id: 'hindi', title: 'Top Hindi', query: 'Bollywood hits songs 2024', icon: Star, color: 'bg-orange-50 text-orange-600 border-orange-100', limit: 30 },
-    { id: 'english', title: 'Top English', query: 'Billboard Hot 100 songs English pop', icon: Globe, color: 'bg-indigo-50 text-indigo-600 border-indigo-100', limit: 30 },
-    { id: 'global', title: 'Global Top 50', query: 'Spotify top 50 global hits 2024', icon: TrendingUp, color: 'bg-emerald-50 text-emerald-600 border-emerald-100', limit: 50 },
-    { id: 'trending', title: 'Trending Now', query: 'viral trending songs 2024', icon: Flame, color: 'bg-rose-50 text-rose-600 border-rose-100', limit: 30 },
-];
-
-export default function HomeView({ onCategoryClick, searchResults, setSearchResults }) {
+export default function HomeView({ searchResults, setSearchResults }) {
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
+    const [homeSongs, setHomeSongs] = useState([]);
+    const [loadingHome, setLoadingHome] = useState(true);
     const { playSong } = usePlayer();
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchHomeSongs = async () => {
+            if (!window.electronAPI) return;
+            try {
+                // Use the new recommender engine with a universally popular seed song (e.g. Blinding Lights - The Weeknd)
+                // This will guarantee 50 high-quality global hits instead of a janky 20-item search text scrape
+                const songs = await window.electronAPI.getRecommendations('4NRXx6U8ABQ', 50);
+                if (isMounted) {
+                    setHomeSongs(songs || []);
+                    setLoadingHome(false);
+                }
+            } catch (err) {
+                logger.error('HomeView', 'Failed to fetch home songs', err);
+                if (isMounted) setLoadingHome(false);
+            }
+        };
+
+        fetchHomeSongs();
+        return () => { isMounted = false; };
+    }, []);
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -63,14 +79,23 @@ export default function HomeView({ onCategoryClick, searchResults, setSearchResu
                     ))}
                 </div>
             ) : (
-                <div className="grid grid-cols-2 gap-4 mt-6 max-w-2xl mx-auto w-full">
-                    {CATEGORIES.map((category) => (
-                        <CategoryTile
-                            key={category.id}
-                            category={category}
-                            onClick={() => onCategoryClick(category)}
-                        />
-                    ))}
+                <div className="mt-8">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 px-2 tracking-tight">Quick Picks</h2>
+                    {loadingHome ? (
+                        <div className="flex justify-center my-12">
+                            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {homeSongs.map((song) => (
+                                <SongCard
+                                    key={`home-${song.videoId || song.id}`}
+                                    song={song}
+                                    onClick={() => playSong(song, homeSongs)}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

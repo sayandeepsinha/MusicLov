@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Online music APIs
     search: (query) => ipcRenderer.invoke('search', query),
     browse: (category) => ipcRenderer.invoke('browse', category),
+    getRecommendations: (videoId, limit) => ipcRenderer.invoke('get-recommendations', { videoId, limit }),
 
     // Audio Engine controls (YouTube playback via hidden Chromium window)
     enginePlay: (videoId) => ipcRenderer.invoke('engine:play', videoId),
@@ -28,6 +29,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
             handlers.forEach(({ channel, handler }) => {
                 ipcRenderer.removeListener(channel, handler);
             });
+        };
+    },
+
+    // Media keys forwarding
+    onMediaKey: (callback) => {
+        const pHandler = () => callback('play-pause');
+        const nHandler = () => callback('next-track');
+        const prHandler = () => callback('previous-track');
+
+        ipcRenderer.on('media:play-pause', pHandler);
+        ipcRenderer.on('media:next-track', nHandler);
+        ipcRenderer.on('media:previous-track', prHandler);
+
+        return () => {
+            ipcRenderer.removeListener('media:play-pause', pHandler);
+            ipcRenderer.removeListener('media:next-track', nHandler);
+            ipcRenderer.removeListener('media:previous-track', prHandler);
         };
     },
 

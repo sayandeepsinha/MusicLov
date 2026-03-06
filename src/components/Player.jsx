@@ -8,7 +8,7 @@ export default function Player() {
     const {
         currentSong, isPlaying, setIsPlaying, togglePlay, playNext, playPrevious,
         audioUrl, isLoadingAudio, queue, currentIndex, playQueueTrack,
-        playbackMode, engineProgress, engineDuration,
+        playbackMode, engineProgress, engineDuration, isRepeat, setIsRepeat,
         engineSeek, engineSetVolume, engineSetMuted,
     } = usePlayer();
 
@@ -16,7 +16,6 @@ export default function Player() {
     const [localProgress, setLocalProgress] = useState(0);
     const [localDuration, setLocalDuration] = useState(0);
     const [isMuted, setIsMuted] = useState(false);
-    const [isRepeat, setIsRepeat] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
     const [isSeeking, setIsSeeking] = useState(false);
     const isProgrammaticRef = useRef(false);
