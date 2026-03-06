@@ -64,10 +64,10 @@ jobs:
         with:
           name: MusicLov-${{ matrix.platform }}
           path: |
-            dist/*.dmg
-            dist/*.exe
-            dist/*.rpm
-            dist/*.deb
+            release/*.dmg
+            release/*.exe
+            release/*.rpm
+            release/*.deb
           if-no-files-found: error
 
   release:

@@ -39,7 +39,8 @@
       "category": "Audio",
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm"
       ]
     },
     "files": [
