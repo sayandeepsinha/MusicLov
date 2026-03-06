@@ -5,7 +5,8 @@ const { ipcMain } = require('electron');
 
 function registerHandlers({ audioEngine, youtube, innertube, localLibrary, recommender }) {
     // Search & Browse
-    ipcMain.handle('search', (_, query) => innertube.search(query));
+    ipcMain.handle('search', (_, { query, token }) => innertube.search(query, token));
+    ipcMain.handle('get-suggestions', (_, query) => innertube.getSuggestions(query));
     ipcMain.handle('browse', (_, { query, limit = 30 }) => innertube.browse(query, limit));
     ipcMain.handle('get-recommendations', (_, { videoId, limit }) => recommender.getRecommendations(videoId, limit));
     ipcMain.handle('get-personalized-mix', (_, { historyIds, limit }) => recommender.getPersonalizedMix(historyIds, limit));

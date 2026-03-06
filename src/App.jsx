@@ -56,18 +56,25 @@ function AppContent() {
         <div className="flex-1 flex flex-col h-full bg-white overflow-hidden relative pb-24">
             <NavBar currentView={currentView} onBack={goBack} onHome={goHome} onLibrary={goLibrary} />
 
-            <div className="flex-1 overflow-auto p-4">
-                {currentView === 'home' ? (
+            <div className="flex-1 overflow-auto p-4 flex flex-col relative w-full h-full">
+                <div className={`absolute inset-0 p-4 overflow-auto transition-opacity duration-200 ${currentView === 'home' ? 'opacity-100 z-10 block' : 'opacity-0 -z-10 hidden'}`}>
                     <HomeView
                         onCategoryClick={handleCategoryClick}
                         searchResults={searchResults}
                         setSearchResults={setSearchResults}
+                        onLibraryClick={goLibrary}
                     />
-                ) : currentView === 'browse' && selectedCategory ? (
-                    <BrowseView category={selectedCategory} onBack={goBack} />
-                ) : currentView === 'library' ? (
-                    <LibraryView />
-                ) : null}
+                </div>
+
+                <div className={`absolute inset-0 p-4 overflow-auto transition-opacity duration-200 ${currentView === 'browse' && selectedCategory ? 'opacity-100 z-10 block' : 'opacity-0 -z-10 hidden'}`}>
+                    {currentView === 'browse' && selectedCategory && (
+                        <BrowseView category={selectedCategory} onBack={goBack} />
+                    )}
+                </div>
+
+                <div className={`absolute inset-0 p-4 overflow-auto transition-opacity duration-200 ${currentView === 'library' ? 'opacity-100 z-10 block' : 'opacity-0 -z-10 hidden'}`}>
+                    {currentView === 'library' && <LibraryView />}
+                </div>
             </div>
         </div>
     );

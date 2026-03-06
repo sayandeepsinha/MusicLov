@@ -2,8 +2,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     // Online music APIs
-    search: (query) => ipcRenderer.invoke('search', query),
-    browse: (category) => ipcRenderer.invoke('browse', category),
+    search: (query, token) => ipcRenderer.invoke('search', { query, token }),
+    getSuggestions: (query) => ipcRenderer.invoke('get-suggestions', query),
+    browse: (category) => ipcRenderer.invoke('browse', { query: category }),
     getRecommendations: (videoId, limit) => ipcRenderer.invoke('get-recommendations', { videoId, limit }),
     getPersonalizedMix: (historyIds, limit) => ipcRenderer.invoke('get-personalized-mix', { historyIds, limit }),
 
